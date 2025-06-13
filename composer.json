@@ -1,0 +1,56 @@
+{
+    "name": "shipmonk/coding-standard",
+    "description": "PHP Coding Standard used in ShipMonk",
+    "license": [
+        "MIT"
+    ],
+    "type": "library",
+    "require": {
+        "php": "^7.4 || ^8.0",
+        "slevomat/coding-standard": "^8.19.1"
+    },
+    "require-dev": {
+        "ext-simplexml": "*",
+        "editorconfig-checker/editorconfig-checker": "^10.6.0",
+        "ergebnis/composer-normalize": "^2.45.0",
+        "phpunit/phpunit": "^12.2",
+        "shipmonk/composer-dependency-analyser": "^1.8.1",
+        "shipmonk/dead-code-detector": "^0.9.0",
+        "shipmonk/name-collision-detector": "^2.1.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "ShipMonk\\CodingStandard\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ShipMonkTests\\CodingStandard\\": "tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "ergebnis/composer-normalize": true
+        },
+        "sort-packages": true
+    },
+    "scripts": {
+        "check": [
+            "@check:composer",
+            "@check:ec",
+            "@check:cs",
+            "@check:dependencies",
+            "@check:collisions"
+        ],
+        "check:collisions": "detect-collisions src",
+        "check:composer": [
+            "composer normalize --dry-run --no-check-lock --no-update-lock",
+            "composer validate --strict"
+        ],
+        "check:cs": "phpcs",
+        "check:dependencies": "composer-dependency-analyser",
+        "check:ec": "ec src",
+        "fix:cs": "phpcbf"
+    }
+}
