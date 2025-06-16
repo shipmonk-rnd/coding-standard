@@ -76,7 +76,6 @@
 
     <rule ref="PSR2">
         <exclude name="Generic.Files.LineLength"/><!-- can not be suppressed -->
-        <exclude name="Generic.WhiteSpace.DisallowTabIndent"/><!-- don't check indentation with spaces -->
         <exclude name="PEAR.Functions.ValidDefaultValue"/><!-- we want to allow null as "default" value -->
         <exclude name="PSR1.Files.SideEffects"/>
         <exclude name="PSR2.Classes.ClassDeclaration"/><!-- we want whitespace around class body and rules for extends and implements, using PEAR instead -->
