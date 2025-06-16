@@ -1,10 +1,8 @@
 {
     "name": "shipmonk/coding-standard",
     "description": "PHP Coding Standard used in ShipMonk",
-    "license": [
-        "MIT"
-    ],
-    "type": "library",
+    "license": "MIT",
+    "type" : "phpcodesniffer-standard",
     "require": {
         "php": "^7.4 || ^8.0",
         "slevomat/coding-standard": "^8.19.1"

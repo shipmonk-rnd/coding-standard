@@ -4,10 +4,11 @@
     xsi:noNamespaceSchemaLocation="vendor/squizlabs/php_codesniffer/phpcs.xsd"
     name="ShipMonk Coding Standard for ShipMonk Coding Standard"
 >
+    <arg name="basepath" value="."/>
     <arg name="cache" value="cache/phpcs.cache"/>
 
     <file>src/</file>
     <file>tests/</file>
 
-    <rule ref="./ruleset.xml"/>
+    <rule ref="ShipMonkCodingStandard"/>
 </ruleset>

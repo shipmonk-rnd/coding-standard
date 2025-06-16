@@ -12,7 +12,7 @@ class RulesetSortingTest extends TestCase
 
     public function testRulesAreSortedAlphabetically(): void
     {
-        $rulesetPath = __DIR__ . '/../ruleset.xml';
+        $rulesetPath = __DIR__ . '/../ShipMonkCodingStandard/ruleset.xml';
         $this->assertFileExists($rulesetPath);
 
         $xml = simplexml_load_file($rulesetPath);
