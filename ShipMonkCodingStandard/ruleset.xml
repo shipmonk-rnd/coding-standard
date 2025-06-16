@@ -55,6 +55,7 @@
         </properties>
     </rule>
     <rule ref="Generic.VersionControl.GitMergeConflict"/>
+    <rule ref="Generic.WhiteSpace.DisallowTabIndent"/>
     <rule ref="Generic.WhiteSpace.IncrementDecrementSpacing"/>
     <rule ref="Generic.WhiteSpace.LanguageConstructSpacing"/>
     <rule ref="Generic.WhiteSpace.ScopeIndent">
