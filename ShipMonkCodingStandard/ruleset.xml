@@ -142,7 +142,6 @@
             <property name="minParametersCount" value="2"/>
         </properties>
     </rule>
-    <rule ref="SlevomatCodingStandard.Classes.RequireSelfReference"/>
     <rule ref="SlevomatCodingStandard.Classes.TraitUseDeclaration"/>
     <rule ref="SlevomatCodingStandard.Classes.TraitUseSpacing"/>
     <rule ref="SlevomatCodingStandard.Classes.UselessLateStaticBinding"/>
