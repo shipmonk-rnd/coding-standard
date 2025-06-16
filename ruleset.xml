@@ -4,7 +4,6 @@
     xsi:noNamespaceSchemaLocation="vendor/squizlabs/php_codesniffer/phpcs.xsd"
     name="ShipMonk Coding Standard"
 >
-    <arg name="basepath" value="."/>
     <arg name="colors"/>
     <arg name="extensions" value="php"/>
     <arg name="parallel" value="80"/>
