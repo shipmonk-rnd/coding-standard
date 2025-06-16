@@ -2,19 +2,22 @@
     "name": "shipmonk/coding-standard",
     "description": "PHP Coding Standard used in ShipMonk",
     "license": "MIT",
-    "type" : "phpcodesniffer-standard",
+    "type": "phpcodesniffer-standard",
     "require": {
         "php": "^7.4 || ^8.0",
         "slevomat/coding-standard": "^8.19.1"
     },
     "require-dev": {
         "ext-simplexml": "*",
-        "editorconfig-checker/editorconfig-checker": "^10.6.0",
-        "ergebnis/composer-normalize": "^2.45.0",
-        "phpunit/phpunit": "^12.2",
-        "shipmonk/composer-dependency-analyser": "^1.8.1",
-        "shipmonk/dead-code-detector": "^0.9.0",
-        "shipmonk/name-collision-detector": "^2.1.1"
+        "editorconfig-checker/editorconfig-checker": "^10.6",
+        "ergebnis/composer-normalize": "^2.45",
+        "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "phpunit/phpunit": "^9.6",
+        "shipmonk/composer-dependency-analyser": "^1.8",
+        "shipmonk/dead-code-detector": "^0.12",
+        "shipmonk/name-collision-detector": "^2.1"
     },
     "autoload": {
         "psr-4": {
@@ -38,6 +41,7 @@
             "@check:composer",
             "@check:ec",
             "@check:cs",
+            "@check:types",
             "@check:dependencies",
             "@check:collisions"
         ],
@@ -49,6 +53,7 @@
         "check:cs": "phpcs",
         "check:dependencies": "composer-dependency-analyser",
         "check:ec": "ec src",
+        "check:types": "phpstan analyse -vv --ansi",
         "fix:cs": "phpcbf"
     }
 }

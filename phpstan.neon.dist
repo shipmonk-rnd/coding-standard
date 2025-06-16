@@ -4,7 +4,6 @@ includes:
     - ./vendor/phpstan/phpstan-strict-rules/rules.neon
     - ./vendor/phpstan/phpstan-phpunit/extension.neon
     - ./vendor/phpstan/phpstan-phpunit/rules.neon
-    - ./vendor/phpstan/phpstan-deprecation-rules/rules.neon
     - ./vendor/shipmonk/dead-code-detector/rules.neon
 
 parameters:
@@ -14,6 +13,7 @@ parameters:
     internalErrorsCountLimit: 1
     paths:
         - src
+        - tests
     tmpDir: cache/phpstan/
     checkMissingCallableSignature: true
     checkUninitializedProperties: true
@@ -31,10 +31,5 @@ parameters:
         uncheckedExceptionClasses:
             - LogicException
 
-    editorUrl: 'jetbrains://php-storm/navigate/reference?project=phpstan-dev&path=%%relFile%%:%%line%%' # requires usage of JetBrains Toolbox
+    editorUrl: 'jetbrains://php-storm/navigate/reference?project=coding-standard&path=%%relFile%%:%%line%%' # requires usage of JetBrains Toolbox
     editorUrlTitle: '%%relFile%%:%%line%%'
-
-    ignoreErrors:
-        # ignore public API methods being detected as unused (this is a library)
-        - identifier: shipmonk.deadMethod
-          message: '~^Unused ShipMonk\\PHPStanDev\\RuleTestCase::~'
