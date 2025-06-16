@@ -13,7 +13,7 @@ parameters:
         max: 80499
     internalErrorsCountLimit: 1
     paths:
-        - src
+        - ShipMonkCodingStandard
         - tests
     tmpDir: cache/phpstan/
     checkMissingCallableSignature: true

@@ -22,7 +22,7 @@
     },
     "autoload": {
         "psr-4": {
-            "ShipMonk\\CodingStandard\\": "src/"
+            "ShipMonk\\CodingStandard\\": "ShipMonkCodingStandard/"
         }
     },
     "autoload-dev": {
@@ -46,14 +46,14 @@
             "@check:dependencies",
             "@check:collisions"
         ],
-        "check:collisions": "detect-collisions src tests",
+        "check:collisions": "detect-collisions ShipMonkCodingStandard tests",
         "check:composer": [
             "composer normalize --dry-run --no-check-lock --no-update-lock",
             "composer validate --strict"
         ],
         "check:cs": "phpcs",
         "check:dependencies": "composer-dependency-analyser",
-        "check:ec": "ec src tests",
+        "check:ec": "ec ShipMonkCodingStandard tests",
         "check:types": "phpstan analyse -vv --ansi",
         "fix:cs": "phpcbf"
     }
