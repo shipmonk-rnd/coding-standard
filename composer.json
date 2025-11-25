@@ -5,7 +5,7 @@
     "type": "phpcodesniffer-standard",
     "require": {
         "php": "^7.4 || ^8.0",
-        "slevomat/coding-standard": "^8.19.1"
+        "slevomat/coding-standard": "^8.25.0"
     },
     "require-dev": {
         "ext-simplexml": "*",
