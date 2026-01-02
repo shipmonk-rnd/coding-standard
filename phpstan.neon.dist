@@ -34,3 +34,8 @@ parameters:
 
     editorUrl: 'jetbrains://php-storm/navigate/reference?project=coding-standard&path=%%relFile%%:%%line%%' # requires usage of JetBrains Toolbox
     editorUrlTitle: '%%relFile%%:%%line%%'
+
+    ignoreErrors:
+        -
+            identifier: shipmonk.deadMethod
+            path: tests/Data/*
