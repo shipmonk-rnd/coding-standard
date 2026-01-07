@@ -106,6 +106,7 @@
     <rule ref="SlevomatCodingStandard.Attributes.RequireAttributeAfterDocComment"/>
     <rule ref="SlevomatCodingStandard.Classes.BackedEnumTypeSpacing"/>
     <rule ref="SlevomatCodingStandard.Classes.ClassConstantVisibility"/>
+    <rule ref="SlevomatCodingStandard.Classes.ClassKeywordOrder"/>
     <rule ref="SlevomatCodingStandard.Classes.ClassStructure">
         <properties>
             <property name="groups" type="array">
