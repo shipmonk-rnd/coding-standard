@@ -16,6 +16,8 @@
     <rule ref="Generic.Classes.DuplicateClassName"/>
     <rule ref="Generic.CodeAnalysis.EmptyStatement">
         <exclude name="Generic.CodeAnalysis.EmptyStatement.DetectedCatch"/><!-- empty catch statements are allowed when commented -->
+        <exclude name="Generic.CodeAnalysis.EmptyStatement.DetectedElse"/><!-- empty else statements are allowed when commented -->
+        <exclude name="Generic.CodeAnalysis.EmptyStatement.DetectedElseIf"/><!-- empty elseif statements are allowed when commented -->
     </rule>
     <rule ref="Generic.CodeAnalysis.ForLoopShouldBeWhileLoop"/>
     <rule ref="Generic.CodeAnalysis.UnconditionalIfStatement"/>
