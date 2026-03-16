@@ -5,9 +5,12 @@
 >
     <arg name="basepath" value="."/>
     <arg name="cache" value="cache/phpcs.cache"/>
+    <config name="php_version" value="70400"/>
 
     <file>ShipMonkCodingStandard/</file>
     <file>tests/</file>
+
+    <exclude-pattern>tests/Data/</exclude-pattern>
 
     <rule ref="ShipMonkCodingStandard"/>
 </ruleset>
