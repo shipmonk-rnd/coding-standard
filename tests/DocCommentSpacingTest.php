@@ -6,11 +6,14 @@ use PHPUnit\Framework\TestCase;
 use function escapeshellarg;
 use function exec;
 use function implode;
+use function preg_match;
 use function strpos;
 use const PHP_EOL;
 
 class DocCommentSpacingTest extends TestCase
 {
+
+    private const SNIFF_PREFIX = 'SlevomatCodingStandard.Commenting.DocCommentSpacing';
 
     /**
      * Verify that @template* annotations are not reordered relative to each other.
@@ -20,7 +23,31 @@ class DocCommentSpacingTest extends TestCase
     public function testTemplateAnnotationsAreNotReordered(): void
     {
         $output = self::runPhpcs(__DIR__ . '/Data/DocCommentSpacing/TemplateAnnotationOrderCorrect.php');
-        self::assertNoSniffErrors('SlevomatCodingStandard.Commenting.DocCommentSpacing', $output);
+        self::assertNoSniffErrors(self::SNIFF_PREFIX, $output);
+    }
+
+    public function testExtendsBeforeTemplateIsReported(): void
+    {
+        $output = self::runPhpcs(__DIR__ . '/Data/DocCommentSpacing/TemplateAnnotationOrderWrong.php');
+        self::assertSniffErrorOnLine(self::SNIFF_PREFIX . '.IncorrectOrderOfAnnotationsInGroup', $output, 7);
+    }
+
+    public function testImplementsBeforeTemplateIsReported(): void
+    {
+        $output = self::runPhpcs(__DIR__ . '/Data/DocCommentSpacing/TemplateAnnotationOrderWrong.php');
+        self::assertSniffErrorOnLine(self::SNIFF_PREFIX . '.IncorrectOrderOfAnnotationsInGroup', $output, 17);
+    }
+
+    public function testImplementsBeforeExtendsIsReported(): void
+    {
+        $output = self::runPhpcs(__DIR__ . '/Data/DocCommentSpacing/TemplateAnnotationOrderWrong.php');
+        self::assertSniffErrorOnLine(self::SNIFF_PREFIX . '.IncorrectOrderOfAnnotationsInGroup', $output, 28);
+    }
+
+    public function testBlankLineBetweenAnnotationsInSameGroupIsReported(): void
+    {
+        $output = self::runPhpcs(__DIR__ . '/Data/DocCommentSpacing/TemplateAnnotationOrderWrong.php');
+        self::assertSniffErrorOnLine(self::SNIFF_PREFIX . '.IncorrectAnnotationsGroup', $output, 38);
     }
 
     /**
@@ -30,7 +57,7 @@ class DocCommentSpacingTest extends TestCase
     {
         $phpcs = __DIR__ . '/../vendor/bin/phpcs';
         $output = [];
-        exec($phpcs . ' --standard=ShipMonkCodingStandard -s ' . escapeshellarg($filePath), $output);
+        exec($phpcs . ' --standard=ShipMonkCodingStandard --no-colors -s ' . escapeshellarg($filePath), $output);
         return $output;
     }
 
@@ -54,6 +81,38 @@ class DocCommentSpacingTest extends TestCase
             [],
             $relevantErrors,
             'Expected no ' . $sniffPrefix . ' errors, but found:' . PHP_EOL . implode(PHP_EOL, $relevantErrors),
+        );
+    }
+
+    /**
+     * @param list<string> $phpcsOutput
+     */
+    /**
+     * @param list<string> $phpcsOutput
+     */
+    private static function assertSniffErrorOnLine(
+        string $sniffCode,
+        array $phpcsOutput,
+        int $expectedLine,
+    ): void
+    {
+        $currentLine = 0;
+        $found = false;
+
+        foreach ($phpcsOutput as $outputLine) {
+            if (preg_match('~^\s*(\d+)\s*\|~', $outputLine, $matches) === 1) {
+                $currentLine = (int) $matches[1];
+            }
+
+            if (strpos($outputLine, $sniffCode) !== false && $currentLine === $expectedLine) {
+                $found = true;
+            }
+        }
+
+        self::assertTrue(
+            $found,
+            'Expected ' . $sniffCode . ' error on line ' . $expectedLine
+            . ', but not found in output:' . PHP_EOL . implode(PHP_EOL, $phpcsOutput),
         );
     }
 
