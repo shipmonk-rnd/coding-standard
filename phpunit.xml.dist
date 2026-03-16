@@ -11,6 +11,11 @@
         failOnWarning="true"
         cacheResultFile="cache/phpunit.result.cache"
 >
+    <testsuites>
+        <testsuite name="tests">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
     <php>
         <ini name="error_reporting" value="-1"/>
     </php>

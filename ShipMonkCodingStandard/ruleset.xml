@@ -164,11 +164,7 @@
                     @return,
                 "/>
                 <element value="
-                    @template,
-                    @template-covariant,
-                    @template-contravariant,
-                    @template-extends,
-                    @template-implements,
+                    @template*,
                     @extends,
                     @implements,
                 "/>
