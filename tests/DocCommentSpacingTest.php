@@ -26,27 +26,20 @@ class DocCommentSpacingTest extends TestCase
         self::assertNoSniffErrors(self::SNIFF_PREFIX, $output);
     }
 
-    public function testExtendsBeforeTemplateIsReported(): void
+    public function testWrongAnnotationOrderIsReported(): void
     {
         $output = self::runPhpcs(__DIR__ . '/Data/DocCommentSpacing/TemplateAnnotationOrderWrong.php');
+
+        // @extends before @template
         self::assertSniffErrorOnLine(self::SNIFF_PREFIX . '.IncorrectOrderOfAnnotationsInGroup', $output, 7);
-    }
 
-    public function testImplementsBeforeTemplateIsReported(): void
-    {
-        $output = self::runPhpcs(__DIR__ . '/Data/DocCommentSpacing/TemplateAnnotationOrderWrong.php');
+        // @implements before @template
         self::assertSniffErrorOnLine(self::SNIFF_PREFIX . '.IncorrectOrderOfAnnotationsInGroup', $output, 17);
-    }
 
-    public function testImplementsBeforeExtendsIsReported(): void
-    {
-        $output = self::runPhpcs(__DIR__ . '/Data/DocCommentSpacing/TemplateAnnotationOrderWrong.php');
+        // @implements before @extends
         self::assertSniffErrorOnLine(self::SNIFF_PREFIX . '.IncorrectOrderOfAnnotationsInGroup', $output, 28);
-    }
 
-    public function testBlankLineBetweenAnnotationsInSameGroupIsReported(): void
-    {
-        $output = self::runPhpcs(__DIR__ . '/Data/DocCommentSpacing/TemplateAnnotationOrderWrong.php');
+        // blank line between annotations in same group
         self::assertSniffErrorOnLine(self::SNIFF_PREFIX . '.IncorrectAnnotationsGroup', $output, 38);
     }
 
@@ -87,9 +80,6 @@ class DocCommentSpacingTest extends TestCase
     /**
      * @param list<string> $phpcsOutput
      */
-    /**
-     * @param list<string> $phpcsOutput
-     */
     private static function assertSniffErrorOnLine(
         string $sniffCode,
         array $phpcsOutput,
@@ -106,6 +96,7 @@ class DocCommentSpacingTest extends TestCase
 
             if (strpos($outputLine, $sniffCode) !== false && $currentLine === $expectedLine) {
                 $found = true;
+                break;
             }
         }
 
