@@ -59,7 +59,7 @@ class DocCommentSpacingTest extends TestCase
      */
     private static function assertNoSniffErrors(
         string $sniffPrefix,
-        array $phpcsOutput,
+        array $phpcsOutput
     ): void
     {
         $relevantErrors = [];
@@ -83,7 +83,7 @@ class DocCommentSpacingTest extends TestCase
     private static function assertSniffErrorOnLine(
         string $sniffCode,
         array $phpcsOutput,
-        int $expectedLine,
+        int $expectedLine
     ): void
     {
         $currentLine = 0;
