@@ -5,7 +5,9 @@
     "type": "phpcodesniffer-standard",
     "require": {
         "php": "^7.4 || ^8.0",
-        "slevomat/coding-standard": "^8.28.0"
+        "ext-tokenizer": "*",
+        "slevomat/coding-standard": "^8.28.0",
+        "squizlabs/php_codesniffer": "^4.0.1"
     },
     "require-dev": {
         "ext-simplexml": "*",
@@ -22,7 +24,7 @@
     },
     "autoload": {
         "psr-4": {
-            "ShipMonk\\CodingStandard\\": "ShipMonkCodingStandard/"
+            "ShipMonkCodingStandard\\": "ShipMonkCodingStandard/"
         }
     },
     "autoload-dev": {
@@ -43,6 +45,7 @@
             "@check:ec",
             "@check:cs",
             "@check:types",
+            "@check:tests",
             "@check:dependencies",
             "@check:collisions"
         ],
@@ -54,6 +57,7 @@
         "check:cs": "phpcs",
         "check:dependencies": "composer-dependency-analyser",
         "check:ec": "ec ShipMonkCodingStandard tests",
+        "check:tests": "phpunit",
         "check:types": "phpstan analyse -vv --ansi",
         "fix:cs": "phpcbf"
     }
