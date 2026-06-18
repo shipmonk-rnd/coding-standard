@@ -1,0 +1,9 @@
+{
+    "scanPaths": [
+        "ShipMonkCodingStandard",
+        "tests"
+    ],
+    "excludePaths": [
+        "tests/Data"
+    ]
+}

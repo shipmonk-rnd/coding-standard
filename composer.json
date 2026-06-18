@@ -49,7 +49,7 @@
             "@check:dependencies",
             "@check:collisions"
         ],
-        "check:collisions": "detect-collisions ShipMonkCodingStandard tests",
+        "check:collisions": "detect-collisions",
         "check:composer": [
             "composer normalize --dry-run --no-check-lock --no-update-lock",
             "composer validate --strict"
