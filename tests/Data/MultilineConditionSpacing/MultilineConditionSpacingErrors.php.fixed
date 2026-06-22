@@ -1,0 +1,21 @@
+<?php declare(strict_types = 1);
+
+namespace ShipMonkTests\CodingStandard\Data\MultilineConditionSpacing;
+
+class MultilineConditionSpacingErrors
+{
+
+    public function run(bool $a, bool $b, bool $c): bool
+    {
+        if (
+            $a
+            && $b
+            || $c
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
+}

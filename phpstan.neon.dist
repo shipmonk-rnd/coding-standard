@@ -12,6 +12,13 @@ parameters:
         min: 70400
         max: 80499
     internalErrorsCountLimit: 1
+    featureToggles:
+        internalTag: false # sniffs consume SlevomatCodingStandard @internal helpers, the intended way to build sniffs
+    bootstrapFiles:
+        - vendor/squizlabs/php_codesniffer/autoload.php
+        - vendor/squizlabs/php_codesniffer/src/Util/Tokens.php
+    stubFiles:
+        - build/phpstan/php-codesniffer.stub
     paths:
         - ShipMonkCodingStandard
         - tests
@@ -25,7 +32,7 @@ parameters:
     checkTooWideReturnTypesInProtectedAndPublicMethods: true
     reportAnyTypeWideningInVarTag: true
     reportPossiblyNonexistentConstantArrayOffset: true
-    reportPossiblyNonexistentGeneralArrayOffset: true
+    reportPossiblyNonexistentGeneralArrayOffset: false # sniffs walk the PHP_CodeSniffer token stream by computed integer offsets
     exceptions:
         check:
             missingCheckedExceptionInThrows: true
@@ -33,6 +40,8 @@ parameters:
         implicitThrows: false
         uncheckedExceptionClasses:
             - LogicException
+            - PHP_CodeSniffer\Exceptions\DeepExitException # unrecoverable PHP_CodeSniffer failures surfaced only in sniff tests
+            - PHP_CodeSniffer\Exceptions\RuntimeException
 
     editorUrl: 'jetbrains://php-storm/navigate/reference?project=coding-standard&path=%%relFile%%:%%line%%' # requires usage of JetBrains Toolbox
     editorUrlTitle: '%%relFile%%:%%line%%'

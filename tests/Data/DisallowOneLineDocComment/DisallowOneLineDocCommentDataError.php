@@ -1,0 +1,26 @@
+<?php declare(strict_types = 1);
+
+namespace ShipMonkTests\CodingStandard\Data\DisallowOneLineDocComment;
+
+final class DisallowOneLineDocCommentDataError
+{
+
+    /** @var string */
+    public const FOO = 'foo';
+
+    /** @return void */
+    public function oneLineReturn(): void
+    {
+    }
+
+    /** @param string $foo */
+    public function oneLineParam(string $foo): void
+    {
+    }
+
+    /** Some description */
+    public function oneLineDescription(): void
+    {
+    }
+
+}
