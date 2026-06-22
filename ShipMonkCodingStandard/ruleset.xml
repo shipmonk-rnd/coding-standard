@@ -99,7 +99,6 @@
 
     <rule ref="ShipMonkCodingStandard.Arrays.DoubleArrowSpacing"/>
     <rule ref="ShipMonkCodingStandard.ControlStructures.EmptyConditionBody"/>
-    <rule ref="ShipMonkCodingStandard.ControlStructures.SwitchStatementToMatchExpr"/>
     <rule ref="ShipMonkCodingStandard.Whitespaces.CatchSpacing"/>
     <rule ref="ShipMonkCodingStandard.Whitespaces.DisallowOneLineDocComment"/>
     <rule ref="ShipMonkCodingStandard.Whitespaces.MultilineConditionSpacing"/>
