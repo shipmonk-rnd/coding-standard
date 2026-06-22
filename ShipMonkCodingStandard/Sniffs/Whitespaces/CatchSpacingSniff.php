@@ -6,6 +6,7 @@ use PHP_CodeSniffer\Files\File;
 use PHP_CodeSniffer\Sniffs\Sniff;
 use SlevomatCodingStandard\Helpers\TokenHelper;
 use function floor;
+use function ltrim;
 use function str_repeat;
 use function strlen;
 use const T_BITWISE_OR;
@@ -63,7 +64,9 @@ final class CatchSpacingSniff implements Sniff
             return; // Non-capturing catch is not supported by this sniff
         }
 
-        $catchIndent = $tokens[$closingParenthesisBeforeCatchPointer - 1]['content'];
+        // horizontal indentation of the catch line; ltrim drops the leading newline that the
+        // preceding whitespace token carries when the catch sits at column 1 (e.g. top-level try/catch)
+        $catchIndent = ltrim($tokens[$closingParenthesisBeforeCatchPointer - 1]['content'], "\r\n");
         $catchIndentSize = strlen($catchIndent);
         $expectedIndentBlocks = (int) floor($catchIndentSize / self::INDENT_SIZE) + 1;
         $expectedInnerIndent = str_repeat(' ', $expectedIndentBlocks * self::INDENT_SIZE);
@@ -162,7 +165,14 @@ final class CatchSpacingSniff implements Sniff
                         }
                     }
 
-                    if ($tokens[$tokenPointer + 2]['content'] !== $catchIndent) {
+                    if ($catchIndent === '') {
+                        if ($tokens[$tokenPointer + 2]['code'] === T_WHITESPACE) {
+                            $fix = $phpcsFile->addFixableError('Invalid catch closing indent, expected no indentation', $tokenPointer + 2, self::INVALID_SPACING);
+                            if ($fix) {
+                                $phpcsFile->fixer->replaceToken($tokenPointer + 2, '');
+                            }
+                        }
+                    } elseif ($tokens[$tokenPointer + 2]['content'] !== $catchIndent) {
                         $fix = $phpcsFile->addFixableError("Invalid catch closing indent, expected '{$catchIndent}'", $tokenPointer + 2, self::INVALID_SPACING);
                         if ($fix) {
                             $this->addOrReplaceWhitespaceToken($phpcsFile, $tokenPointer + 2, $catchIndent);

@@ -31,12 +31,27 @@ final class CatchSpacingSniffTest extends SniffTestCase
     {
         $report = self::checkFile(__DIR__ . '/../../Data/CatchSpacing/CatchSpacingDataMultiline.php');
         self::assertErrorCount($report, 7);
+        self::assertNoErrorInFixedFile($report);
     }
 
     public function testFail(): void
     {
         $report = self::checkFile(__DIR__ . '/../../Data/CatchSpacing/CatchSpacingDataFail.php');
         self::assertErrorCount($report, 8);
+        self::assertNoErrorInFixedFile($report);
+    }
+
+    public function testTopLevelNoErrors(): void
+    {
+        $report = self::checkFile(__DIR__ . '/../../Data/CatchSpacing/CatchSpacingDataTopLevelPass.php');
+        self::assertErrorCount($report, 0);
+    }
+
+    public function testTopLevelErrors(): void
+    {
+        $report = self::checkFile(__DIR__ . '/../../Data/CatchSpacing/CatchSpacingDataTopLevelError.php');
+        self::assertErrorCount($report, 1);
+        self::assertNoErrorInFixedFile($report);
     }
 
 }
