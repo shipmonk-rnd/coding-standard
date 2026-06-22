@@ -22,7 +22,7 @@ final class MultilineConditionSpacingSniff implements Sniff
      */
     public function process(
         File $phpcsFile,
-        $pointer
+        $pointer,
     ): void
     {
         $tokens = $phpcsFile->getTokens();

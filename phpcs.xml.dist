@@ -5,7 +5,7 @@
 >
     <arg name="basepath" value="."/>
     <arg name="cache" value="cache/phpcs.cache"/>
-    <config name="php_version" value="70400"/>
+    <config name="php_version" value="80100"/>
 
     <file>ShipMonkCodingStandard/</file>
     <file>tests/</file>
