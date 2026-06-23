@@ -7,7 +7,7 @@ use function escapeshellarg;
 use function exec;
 use function implode;
 use function preg_match;
-use function strpos;
+use function str_contains;
 use const PHP_EOL;
 
 class DocCommentSpacingTest extends TestCase
@@ -59,13 +59,13 @@ class DocCommentSpacingTest extends TestCase
      */
     private static function assertNoSniffErrors(
         string $sniffPrefix,
-        array $phpcsOutput
+        array $phpcsOutput,
     ): void
     {
         $relevantErrors = [];
 
         foreach ($phpcsOutput as $line) {
-            if (strpos($line, $sniffPrefix) !== false) {
+            if (str_contains($line, $sniffPrefix)) {
                 $relevantErrors[] = $line;
             }
         }
@@ -83,7 +83,7 @@ class DocCommentSpacingTest extends TestCase
     private static function assertSniffErrorOnLine(
         string $sniffCode,
         array $phpcsOutput,
-        int $expectedLine
+        int $expectedLine,
     ): void
     {
         $currentLine = 0;
@@ -94,7 +94,7 @@ class DocCommentSpacingTest extends TestCase
                 $currentLine = (int) $matches[1];
             }
 
-            if (strpos($outputLine, $sniffCode) !== false && $currentLine === $expectedLine) {
+            if (str_contains($outputLine, $sniffCode) && $currentLine === $expectedLine) {
                 $found = true;
                 break;
             }

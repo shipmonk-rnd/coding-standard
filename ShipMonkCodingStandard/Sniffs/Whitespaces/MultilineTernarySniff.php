@@ -18,7 +18,7 @@ final class MultilineTernarySniff implements Sniff
      */
     public function process(
         File $phpcsFile,
-        $pointer
+        $pointer,
     ): void
     {
         $tokens = $phpcsFile->getTokens();

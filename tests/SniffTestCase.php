@@ -53,7 +53,7 @@ abstract class SniffTestCase extends TestCase
 
     protected static function assertErrorCount(
         File $file,
-        int $expectedErrorCount
+        int $expectedErrorCount,
     ): void
     {
         self::assertSame($expectedErrorCount, $file->getErrorCount());

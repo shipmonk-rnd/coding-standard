@@ -39,7 +39,7 @@ final class CatchSpacingSniff implements Sniff
      */
     public function process(
         File $phpcsFile,
-        $catchPointer
+        $catchPointer,
     ): void
     {
         $tokens = $phpcsFile->getTokens();
@@ -196,7 +196,7 @@ final class CatchSpacingSniff implements Sniff
     private function addOrReplaceWhitespaceToken(
         File $phpcsFile,
         int $pointer,
-        string $whitespaceContent
+        string $whitespaceContent,
     ): void
     {
         $tokens = $phpcsFile->getTokens();

@@ -6,7 +6,7 @@ use PHP_CodeSniffer\Files\File;
 use PHP_CodeSniffer\Sniffs\Sniff;
 use function in_array;
 use function ltrim;
-use function strpos;
+use function str_contains;
 use const T_DOUBLE_ARROW;
 use const T_FN_ARROW;
 use const T_MATCH_ARROW;
@@ -22,7 +22,7 @@ final class DoubleArrowSpacingSniff implements Sniff
      */
     public function process(
         File $phpcsFile,
-        $pointer
+        $pointer,
     ): void
     {
         $tokens = $phpcsFile->getTokens();
@@ -52,7 +52,7 @@ final class DoubleArrowSpacingSniff implements Sniff
         if (!$beforeValid) {
             if ($before['code'] !== T_WHITESPACE) {
                 $phpcsFile->fixer->addContentBefore($pointer, ' ');
-            } elseif (strpos($before['content'], "\n") === false) {
+            } elseif (!str_contains($before['content'], "\n")) {
                 $phpcsFile->fixer->replaceToken($pointer - 1, ' ');
             }
         }
@@ -60,7 +60,7 @@ final class DoubleArrowSpacingSniff implements Sniff
         if (!$afterValid) {
             if ($after['code'] !== T_WHITESPACE) {
                 $phpcsFile->fixer->addContent($pointer, ' ');
-            } elseif (strpos($after['content'], "\n") === false) {
+            } elseif (!str_contains($after['content'], "\n")) {
                 $phpcsFile->fixer->replaceToken($pointer + 1, ' ');
             } else {
                 // whitespace runs into a newline: drop the trailing spaces, keep the line break
