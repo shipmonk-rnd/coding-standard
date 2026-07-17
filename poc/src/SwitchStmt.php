@@ -2,6 +2,8 @@
 
 namespace ShipMonkFmt;
 
+use function count;
+
 /**
  * Template:
  *     switch (subject) {
@@ -21,21 +23,29 @@ final class SwitchStmt implements Node
     public function __construct(
         private readonly SigToken $keyword,
         private readonly Cond $subject,
+        private readonly SigToken $braceOpen,
         private readonly array $cases,
+        private readonly SigToken $braceClose,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $out = $this->keyword->text . ' ' . $this->subject->render($depth) . ' {';
+        $e->token($this->keyword);
+        $e->space();
+        $this->subject->render($e, $ctx->line);
+        $e->space();
+        $e->token($this->braceOpen);
 
-        foreach ($this->cases as $case) {
-            $blank = $case->firstToken()->newlinesBefore() >= 2 ? "\n" : '';
-            $out .= "\n" . $blank . Layout::indent($depth + 1) . $case->renderCase($depth + 1);
+        foreach ($this->cases as $i => $case) {
+            $e->lineBreak($case->firstToken(), $ctx->line + 1);
+            $boundary = $i + 1 < count($this->cases) ? $this->cases[$i + 1]->firstToken() : $this->braceClose;
+            $case->renderCase($e, $ctx->line + 1, $boundary);
         }
 
-        return $out . "\n" . Layout::indent($depth) . '}';
+        $e->newline($ctx->line);
+        $e->token($this->braceClose);
     }
 
     public function firstToken(): SigToken

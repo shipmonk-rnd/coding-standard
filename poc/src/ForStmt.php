@@ -4,7 +4,7 @@ namespace ShipMonkFmt;
 
 /**
  * Template: `for (init; cond; step) { ... }` — sections on one line
- * (PoC limitation: no break points inside the header).
+ * (PoC limitation, deliberate: no break points inside the header).
  */
 final class ForStmt implements Node
 {
@@ -23,27 +23,31 @@ final class ForStmt implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->keyword->text . ' ('
-            . $this->renderList($this->init, $depth) . '; '
-            . ($this->cond?->render($depth) ?? '') . '; '
-            . $this->renderList($this->step, $depth)
-            . ') ' . $this->block->render($depth);
+        $e->token($this->keyword);
+        $e->text(' (');
+        $this->list($e, $this->init, $ctx);
+        $e->text('; ');
+        $this->cond?->render($e, $ctx);
+        $e->text('; ');
+        $this->list($e, $this->step, $ctx);
+        $e->text(') ');
+        $this->block->render($e, $ctx);
     }
 
     /**
      * @param list<Node> $exprs
      */
-    private function renderList(array $exprs, int $depth): string
+    private function list(Emitter $e, array $exprs, RenderCtx $ctx): void
     {
-        $parts = [];
+        foreach ($exprs as $i => $expr) {
+            if ($i > 0) {
+                $e->text(', ');
+            }
 
-        foreach ($exprs as $expr) {
-            $parts[] = $expr->render($depth);
+            $expr->render($e, $ctx);
         }
-
-        return implode(', ', $parts);
     }
 
     public function firstToken(): SigToken

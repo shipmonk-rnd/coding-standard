@@ -2,7 +2,7 @@
 
 namespace ShipMonkFmt;
 
-use function implode;
+use function count;
 use function str_contains;
 
 /**
@@ -17,10 +17,10 @@ use function str_contains;
  *             opener's depth. Each row: one indent level deeper, one OR MORE elements
  *             joined `, `, terminated by a comma (trailing comma required). Rows may
  *             be separated by a single blank line. A comment may form its own row;
- *             a row may end with a trailing `// comment`.
+ *             trailing `// comments` ride along as token trivia.
  *
  * Choice points (all read off the source, never off line width):
- *   - flat vs broken:   any newline at a joint of THIS level (or a comment / a
+ *   - flat vs broken:   any newline at a joint of THIS level (or a comment row / a
  *                       structural force such as ">= 2 parameters")
  *   - row boundaries:   newline before an element = the author starts a new row
  *                       (unless $onePerRow — declarations mandate one per line)
@@ -33,100 +33,136 @@ final class CollectionLayout
      * @param list<ListItem|CommentRow> $items
      */
     public static function render(
+        Emitter $e,
         SigToken $open,
         array $items,
         SigToken $close,
-        int $depth,
+        RenderCtx $ctx,
         bool $forceBroken = false,
         bool $onePerRow = false,
-    ): string
+    ): void
     {
+        $e->token($open);
+
         if ($items === []) {
-            return $open->text . $close->text;
+            $e->token($close);
+
+            return;
         }
 
         $broken = $forceBroken || $close->newlinesBefore() > 0;
 
         foreach ($items as $item) {
-            if (
-                $item instanceof CommentRow
-                || $item->firstToken()->newlinesBefore() > 0
-                || $item->trailingComment() !== null
-            ) {
+            if ($item instanceof CommentRow || $item->firstToken()->newlinesBefore() > 0) {
                 $broken = true;
                 break;
             }
         }
 
         if (!$broken) {
-            $parts = [];
+            foreach ($items as $i => $item) {
+                if ($i > 0) {
+                    $e->token($items[$i - 1]->commaToken());
+                    $e->space();
+                }
 
-            foreach ($items as $item) {
-                $parts[] = $item->render($depth);
+                $item->render($e, $ctx);
             }
 
-            return $open->text . implode(', ', $parts) . $close->text;
+            // trailing comma is NOT emitted in the flat form (layout comma)
+            $e->token($close);
+
+            return;
         }
 
-        $indent = Layout::indent($depth + 1);
-        $out = $open->text;
+        $inner = $ctx->line + 1;
 
-        // comment on the opener's line stays there (line-targeted directives)
-        if ($items[0] instanceof CommentRow && $items[0]->firstToken()->newlinesBefore() === 0
-            && !str_contains($items[0]->token->text, "\n")
-        ) {
-            $out .= ' ' . $items[0]->token->text;
-            $items = array_slice($items, 1);
-        }
+        foreach (self::projectRows($items, $onePerRow) as $row) {
+            if ($row instanceof CommentRow) {
+                if (str_contains($row->token->text, "\n")) {
+                    throw new FatalError('multi-line comment inside a collection is not supported', $row->token->line);
+                }
 
-        $out .= "\n";
-        $pendingComment = null; // trailing comment of the still-open row
-        $rowOpen = false;
-
-        $closeRow = static function () use (&$out, &$rowOpen, &$pendingComment): void {
-            if ($rowOpen) {
-                $out .= ',' . ($pendingComment !== null ? ' ' . $pendingComment->text : '') . "\n";
-                $rowOpen = false;
-                $pendingComment = null;
+                $e->lineBreak($row->token, $inner);
+                $e->token($row->token);
+                continue;
             }
-        };
+
+            $e->newline($inner, $row->blankBefore);
+
+            foreach ($row->items as $i => $item) {
+                if ($i > 0) {
+                    $e->token($row->items[$i - 1]->commaToken());
+                    $e->space();
+                }
+
+                $item->render($e, RenderCtx::atLine($inner));
+            }
+
+            // every row ends with a comma (trailing comma mandatory when broken);
+            // re-emit the source comma when present so its trivia survives
+            $last = $row->items[count($row->items) - 1];
+            $comma = $last->commaToken();
+            $comma !== null ? $e->token($comma) : $e->text(',');
+        }
+
+        $e->newline($ctx->line);
+        $e->token($close);
+    }
+
+    /**
+     * Pure projection of the author's row grouping (notes/50 §7).
+     *
+     * @param non-empty-list<ListItem|CommentRow> $items
+     * @return non-empty-list<Row|CommentRow>
+     */
+    public static function projectRows(array $items, bool $onePerRow): array
+    {
+        $rows = [];
+        $current = [];
+        $blank = false;
 
         foreach ($items as $i => $item) {
             $newlines = $item->firstToken()->newlinesBefore();
-            $blank = $i > 0 && $newlines >= 2;
 
             if ($item instanceof CommentRow) {
-                if (str_contains($item->token->text, "\n")) {
-                    throw new FatalError('multi-line comment inside a collection is not supported', $item->token->line);
-                }
-
                 if ($i > 0 && $newlines === 0) {
                     throw new FatalError('comment must be on its own line inside a collection', $item->token->line);
                 }
 
-                $closeRow();
-                $out .= ($blank ? "\n" : '') . $indent . $item->token->text . "\n";
+                if ($current !== []) {
+                    $rows[] = new Row($current, $blank);
+                    $current = [];
+                }
+
+                $rows[] = $item;
                 continue;
             }
 
-            if ($i === 0 || $newlines > 0 || $onePerRow) {
-                $closeRow();
-                $out .= ($blank ? "\n" : '') . $indent;
-            } elseif ($rowOpen) {
-                $out .= ', ';
-            } else {
+            $startsRow = $i === 0 || $onePerRow || $newlines > 0;
+
+            if ($startsRow && $current !== []) {
+                $rows[] = new Row($current, $blank);
+                $current = [];
+            }
+
+            if (!$startsRow && $current === []) {
                 // same line as a preceding comment row — no layout in the allowed set
                 throw new FatalError('element must start on its own line after a comment', $item->firstToken()->line);
             }
 
-            $out .= $item->render($depth + 1);
-            $rowOpen = true;
-            $pendingComment = $item->trailingComment();
+            if ($current === []) {
+                $blank = $i > 0 && $newlines >= 2;
+            }
+
+            $current[] = $item;
         }
 
-        $closeRow();
+        if ($current !== []) {
+            $rows[] = new Row($current, $blank);
+        }
 
-        return $out . Layout::indent($depth) . $close->text;
+        return $rows;
     }
 
 }

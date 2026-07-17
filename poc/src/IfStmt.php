@@ -4,7 +4,7 @@ namespace ShipMonkFmt;
 
 /**
  * Template: `if (cond) { ... } elseif (cond) { ... } else { ... }` — braces
- * mandatory, `} elseif (` / `} else {` on one line, condition layout per CondLayout.
+ * mandatory, `} elseif (` / `} else {` on one line, condition layout per Cond.
  */
 final class IfStmt implements Node
 {
@@ -22,20 +22,27 @@ final class IfStmt implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $out = $this->keyword->text . ' ' . $this->cond->render($depth)
-            . ' ' . $this->then->render($depth);
+        $e->token($this->keyword);
+        $e->space();
+        $this->cond->render($e, $ctx->line);
+        $e->space();
+        $this->then->render($e, $ctx);
 
         foreach ($this->elseifs as [$kw, $cond, $block]) {
-            $out .= ' ' . $kw->text . ' ' . $cond->render($depth) . ' ' . $block->render($depth);
+            $e->space();
+            $e->token($kw);
+            $e->space();
+            $cond->render($e, $ctx->line);
+            $e->space();
+            $block->render($e, $ctx);
         }
 
         if ($this->else !== null) {
-            $out .= ' else ' . $this->else->render($depth);
+            $e->text(' else ');
+            $this->else->render($e, $ctx);
         }
-
-        return $out;
     }
 
     public function firstToken(): SigToken

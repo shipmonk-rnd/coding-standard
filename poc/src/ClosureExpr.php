@@ -29,21 +29,29 @@ final class ClosureExpr implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $out = ($this->static !== null ? $this->static->text . ' ' : '')
-            . $this->keyword->text . ' '
-            . CollectionLayout::render($this->paramsOpen, $this->params, $this->paramsClose, $depth, onePerRow: true);
+        if ($this->static !== null) {
+            $e->token($this->static);
+            $e->space();
+        }
+
+        $e->token($this->keyword);
+        $e->space();
+        CollectionLayout::render($e, $this->paramsOpen, $this->params, $this->paramsClose, $ctx, onePerRow: true);
 
         if ($this->usesOpen !== null) {
-            $out .= ' use ' . CollectionLayout::render($this->usesOpen, $this->uses, $this->usesClose, $depth, onePerRow: true);
+            $e->text(' use ');
+            CollectionLayout::render($e, $this->usesOpen, $this->uses, $this->usesClose, $ctx, onePerRow: true);
         }
 
         if ($this->returnType !== null) {
-            $out .= ': ' . $this->returnType->render($depth);
+            $e->text(': ');
+            $this->returnType->render($e, $ctx);
         }
 
-        return $out . ' ' . $this->body->render($depth);
+        $e->space();
+        $this->body->render($e, RenderCtx::atLine($ctx->line));
     }
 
     public function firstToken(): SigToken

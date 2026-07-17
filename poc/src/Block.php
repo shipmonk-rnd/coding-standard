@@ -3,41 +3,31 @@
 namespace ShipMonkFmt;
 
 /**
- * Braced statement block. `{` stays on the caller's line; statements at depth+1;
- * `}` on its own line at the caller's depth. A single blank line directly after `{`
- * or before `}` is allowed and preserved (useful in try/catch blocks — the existing
- * standard deliberately allows this, see notes/01).
+ * Braced statement block. `{` stays on the caller's line; statements at line+1;
+ * `}` on its own line at the caller's line indent. A single blank line directly
+ * after `{` or before `}` is allowed and preserved (deliberate, notes/01).
+ * Comments on the `{` line ride as trivia and are flushed by the first break.
  */
 final class Block implements Node
 {
 
     /**
      * @param list<Node> $stmts
-     * @param SigToken|null $headerComment trailing comment on the `{` line — must stay
-     *        there: line-targeted directives (`// @phpstan-ignore ...`) break if moved
      */
     public function __construct(
         private readonly SigToken $open,
         private readonly array $stmts,
         private readonly SigToken $close,
-        private readonly ?SigToken $headerComment = null,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $open = '{' . ($this->headerComment !== null ? ' ' . $this->headerComment->text : '');
-        $blankBeforeClose = $this->close->newlinesBefore() >= 2 ? "\n" : '';
-
-        if ($this->stmts === []) {
-            return $open . $blankBeforeClose . "\n" . Layout::indent($depth) . '}';
-        }
-
-        return $open
-            . StmtSeries::render($this->stmts, $depth + 1)
-            . $blankBeforeClose
-            . "\n" . Layout::indent($depth) . '}';
+        $e->token($this->open);
+        StmtSeries::render($e, $this->stmts, $ctx->line + 1, $this->close);
+        $e->newline($ctx->line, $this->close->newlinesBefore() >= 2);
+        $e->token($this->close);
     }
 
     public function firstToken(): SigToken

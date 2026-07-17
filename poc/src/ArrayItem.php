@@ -3,32 +3,38 @@
 namespace ShipMonkFmt;
 
 /**
- * Template: `value` or `key => value` with exactly one space around `=>`;
- * optional trailing same-line comment (rendered by the enclosing collection).
+ * Template: `value`, `key => value` (one space around `=>`) or `name: value`
+ * (named argument, no space before `:`).
  */
 final class ArrayItem implements ListItem
 {
 
     public function __construct(
         private readonly ?Node $key,
+        private readonly ?SigToken $arrow,
         private readonly Node $value,
-        private readonly ?SigToken $trailingComment = null,
+        private readonly ?SigToken $comma,
         private readonly bool $named = false,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        if ($this->key === null) {
-            return $this->value->render($depth);
+        if ($this->key !== null) {
+            $this->key->render($e, $ctx);
+
+            if ($this->named) {
+                $e->token($this->arrow); // the `:` of a named argument
+                $e->space();
+            } else {
+                $e->space();
+                $e->token($this->arrow);
+                $e->space();
+            }
         }
 
-        if ($this->named) {
-            return $this->key->render($depth) . ': ' . $this->value->render($depth);
-        }
-
-        return $this->key->render($depth) . ' => ' . $this->value->render($depth);
+        $this->value->render($e, $ctx);
     }
 
     public function firstToken(): SigToken
@@ -36,9 +42,9 @@ final class ArrayItem implements ListItem
         return ($this->key ?? $this->value)->firstToken();
     }
 
-    public function trailingComment(): ?SigToken
+    public function commaToken(): ?SigToken
     {
-        return $this->trailingComment;
+        return $this->comma;
     }
 
 }

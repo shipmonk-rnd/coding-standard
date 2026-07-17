@@ -2,8 +2,6 @@
 
 namespace ShipMonkFmt;
 
-use function implode;
-
 final class CatchClause
 {
 
@@ -19,17 +17,26 @@ final class CatchClause
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $types = [];
+        $e->token($this->keyword);
+        $e->text(' (');
 
-        foreach ($this->types as $type) {
-            $types[] = $type->text;
+        foreach ($this->types as $i => $type) {
+            if ($i > 0) {
+                $e->text(' | ');
+            }
+
+            $e->token($type);
         }
 
-        return $this->keyword->text . ' (' . implode(' | ', $types)
-            . ($this->var !== null ? ' ' . $this->var->text : '')
-            . ') ' . $this->block->render($depth);
+        if ($this->var !== null) {
+            $e->space();
+            $e->token($this->var);
+        }
+
+        $e->text(') ');
+        $this->block->render($e, $ctx);
     }
 
 }

@@ -14,17 +14,29 @@ final class UseStmt implements Node
         private readonly ?SigToken $kind,
         private readonly SigToken $name,
         private readonly ?SigToken $alias,
+        private readonly SigToken $semi,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->keyword->text
-            . ($this->kind !== null ? ' ' . $this->kind->text : '')
-            . ' ' . $this->name->text
-            . ($this->alias !== null ? ' as ' . $this->alias->text : '')
-            . ';';
+        $e->token($this->keyword);
+
+        if ($this->kind !== null) {
+            $e->space();
+            $e->token($this->kind);
+        }
+
+        $e->space();
+        $e->token($this->name);
+
+        if ($this->alias !== null) {
+            $e->text(' as ');
+            $e->token($this->alias);
+        }
+
+        $e->token($this->semi);
     }
 
     public function firstToken(): SigToken

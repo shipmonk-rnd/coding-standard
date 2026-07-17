@@ -20,15 +20,14 @@ final class AttributedNode implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $out = '';
-
         foreach ($this->groups as $group) {
-            $out .= $group->render($depth) . "\n" . Layout::indent($depth);
+            $group->render($e, $ctx);
+            $e->newline($ctx->line);
         }
 
-        return $out . $this->target->render($depth);
+        $this->target->render($e, $ctx);
     }
 
     public function firstToken(): SigToken

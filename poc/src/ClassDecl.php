@@ -2,8 +2,6 @@
 
 namespace ShipMonkFmt;
 
-use function implode;
-
 /**
  * Class / interface / trait / enum declaration.
  *
@@ -11,7 +9,7 @@ use function implode;
  * brace on its OWN line (PEAR.Classes.ClassDeclaration style, notes/01), members at
  * depth+1 each on their own line with 0-1 blank lines between them (author's grouping
  * preserved, clamped), closing brace at the declaration's depth with an optional
- * single blank line before it.
+ * single blank line before it. Empty body: both `{\n}` and `{\n\n}` allowed.
  */
 final class ClassDecl implements Node
 {
@@ -29,62 +27,48 @@ final class ClassDecl implements Node
         private readonly ?TypeNode $enumBacking,
         private readonly array $extends,
         private readonly array $implements,
+        private readonly SigToken $bodyOpen,
         private readonly array $members,
         private readonly SigToken $bodyClose,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $head = '';
-
         foreach ($this->modifiers as $modifier) {
-            $head .= $modifier->text . ' ';
+            $e->token($modifier);
+            $e->space();
         }
 
-        $head .= $this->keyword->text . ' ' . $this->name->text;
+        $e->token($this->keyword);
+        $e->space();
+        $e->token($this->name);
 
         if ($this->enumBacking !== null) {
-            $head .= ': ' . $this->enumBacking->render($depth);
+            $e->text(': ');
+            $this->enumBacking->render($e, $ctx);
         }
 
-        if ($this->extends !== []) {
-            $head .= ' extends ' . implode(', ', $this->names($this->extends));
-        }
+        $this->nameList($e, ' extends ', $this->extends);
+        $this->nameList($e, ' implements ', $this->implements);
 
-        if ($this->implements !== []) {
-            $head .= ' implements ' . implode(', ', $this->names($this->implements));
-        }
-
-        $out = $head . "\n" . Layout::indent($depth) . '{';
-
-        if ($this->members === []) {
-            // `{\n}` and `{\n\n}` both allowed (the old standard's
-            // EmptyLinesAroundClassBraces canonical empty body is the latter)
-            return $out . ($this->bodyClose->newlinesBefore() >= 2 ? "\n" : '')
-                . "\n" . Layout::indent($depth) . '}';
-        }
-
-        return $out
-            . StmtSeries::render($this->members, $depth + 1)
-            . ($this->bodyClose->newlinesBefore() >= 2 ? "\n" : '')
-            . "\n" . Layout::indent($depth) . '}';
+        $e->newline($ctx->line);
+        $e->token($this->bodyOpen);
+        StmtSeries::render($e, $this->members, $ctx->line + 1, $this->bodyClose);
+        $e->newline($ctx->line, $this->bodyClose->newlinesBefore() >= 2);
+        $e->token($this->bodyClose);
     }
 
     /**
-     * @param list<SigToken> $tokens
-     * @return list<string>
+     * @param list<SigToken> $names
      */
-    private function names(array $tokens): array
+    private function nameList(Emitter $e, string $keyword, array $names): void
     {
-        $names = [];
-
-        foreach ($tokens as $token) {
-            $names[] = $token->text;
+        foreach ($names as $i => $name) {
+            $e->text($i === 0 ? $keyword : ', ');
+            $e->token($name);
         }
-
-        return $names;
     }
 
     public function firstToken(): SigToken

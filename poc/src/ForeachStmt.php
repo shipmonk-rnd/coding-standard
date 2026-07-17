@@ -20,13 +20,25 @@ final class ForeachStmt implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->keyword->text . ' (' . $this->subject->render($depth) . ' as '
-            . ($this->key !== null ? $this->key->render($depth) . ' => ' : '')
-            . ($this->byRef !== null ? '&' : '')
-            . $this->value->render($depth)
-            . ') ' . $this->block->render($depth);
+        $e->token($this->keyword);
+        $e->text(' (');
+        $this->subject->render($e, $ctx);
+        $e->text(' as ');
+
+        if ($this->key !== null) {
+            $this->key->render($e, $ctx);
+            $e->text(' => ');
+        }
+
+        if ($this->byRef !== null) {
+            $e->token($this->byRef);
+        }
+
+        $this->value->render($e, $ctx);
+        $e->text(') ');
+        $this->block->render($e, $ctx);
     }
 
     public function firstToken(): SigToken

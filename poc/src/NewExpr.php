@@ -4,7 +4,8 @@ namespace ShipMonkFmt;
 
 /**
  * Template: `new ClassName(args)` — argument layout per CollectionLayout;
- * parens-less `new X` preserved as written (adding tokens is out of formatter scope).
+ * parens-less `new X` preserved as written (adding tokens is a declared-edit
+ * feature for later, notes/50 §8).
  */
 final class NewExpr implements Node
 {
@@ -22,15 +23,15 @@ final class NewExpr implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $out = $this->keyword->text . ' ' . $this->class->render($depth);
+        $e->token($this->keyword);
+        $e->space();
+        $this->class->render($e, $ctx);
 
         if ($this->argsOpen !== null) {
-            $out .= CollectionLayout::render($this->argsOpen, $this->args, $this->argsClose, $depth);
+            CollectionLayout::render($e, $this->argsOpen, $this->args, $this->argsClose, $ctx);
         }
-
-        return $out;
     }
 
     public function firstToken(): SigToken

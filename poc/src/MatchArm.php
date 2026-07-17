@@ -4,7 +4,7 @@ namespace ShipMonkFmt;
 
 /**
  * One `conds => expr,` arm of a match (conditions joined `, `, trailing comma
- * mandatory, optional trailing comment).
+ * mandatory; trailing comments ride as comma trivia).
  */
 final class MatchArm implements Node
 {
@@ -15,28 +15,32 @@ final class MatchArm implements Node
     public function __construct(
         private readonly ?SigToken $default,
         private readonly array $conds,
+        private readonly SigToken $arrow,
         private readonly Node $body,
-        private readonly ?SigToken $trailingComment,
+        private readonly ?SigToken $comma,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
         if ($this->default !== null) {
-            $label = $this->default->text;
+            $e->token($this->default);
         } else {
-            $parts = [];
+            foreach ($this->conds as $i => $cond) {
+                if ($i > 0) {
+                    $e->text(', ');
+                }
 
-            foreach ($this->conds as $cond) {
-                $parts[] = $cond->render($depth);
+                $cond->render($e, $ctx);
             }
-
-            $label = implode(', ', $parts);
         }
 
-        return $label . ' => ' . $this->body->render($depth) . ','
-            . ($this->trailingComment !== null ? ' ' . $this->trailingComment->text : '');
+        $e->space();
+        $e->token($this->arrow);
+        $e->space();
+        $this->body->render($e, $ctx);
+        $this->comma !== null ? $e->token($this->comma) : $e->text(',');
     }
 
     public function firstToken(): SigToken

@@ -11,15 +11,21 @@ final class SimpleStmt implements Node
     public function __construct(
         private readonly SigToken $keyword,
         private readonly ?Node $expr,
+        private readonly SigToken $semi,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->keyword->text
-            . ($this->expr !== null ? ' ' . $this->expr->render($depth) : '')
-            . ';';
+        $e->token($this->keyword);
+
+        if ($this->expr !== null) {
+            $e->space();
+            $this->expr->render($e, $ctx);
+        }
+
+        $e->token($this->semi);
     }
 
     public function firstToken(): SigToken

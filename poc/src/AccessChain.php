@@ -7,11 +7,12 @@ namespace ShipMonkFmt;
  *
  * Allowed forms per `->` / `?->` joint (author's choice):
  *   FLAT      attached directly
- *   BROKEN    newline, operator LEADING on the continuation line at depth+1:
+ *   BROKEN    newline, operator LEADING on the continuation line at $ctx->cont:
  *                 $query
  *                     ->from($table)
  *                     ->where($cond)
- * `::`, `[...]`, `(...)`, `++/--` never break (repaired flat).
+ * `::`, `[...]`, `(...)`, `++/--` never break (repaired flat). Trailing comments
+ * between segments ride as token trivia and are flushed by the joint break.
  */
 final class AccessChain implements Node
 {
@@ -26,27 +27,19 @@ final class AccessChain implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $out = $this->base->render($depth);
-        $current = $depth;
+        $this->base->render($e, $ctx);
+        $current = $ctx;
 
         foreach ($this->segments as $segment) {
             if ($segment->isObjectOp() && $segment->op->newlinesBefore() > 0) {
-                $current = $depth + 1;
-                $out .= "\n" . Layout::indent($current);
+                $e->newline($ctx->cont);
+                $current = RenderCtx::atLine($ctx->cont);
             }
 
-            $out .= $segment->render($current);
-
-            // trailing comment stays at the end of this segment's line; the next
-            // segment is guaranteed broken (see parser guard), providing the newline
-            if ($segment->trailingComment !== null) {
-                $out .= ' ' . $segment->trailingComment->text;
-            }
+            $segment->render($e, $current);
         }
-
-        return $out;
     }
 
     public function firstToken(): SigToken

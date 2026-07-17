@@ -12,14 +12,19 @@ final class DoWhileStmt implements Node
         private readonly SigToken $keyword,
         private readonly Block $block,
         private readonly Cond $cond,
+        private readonly SigToken $semi,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->keyword->text . ' ' . $this->block->render($depth)
-            . ' while ' . $this->cond->render($depth) . ';';
+        $e->token($this->keyword);
+        $e->space();
+        $this->block->render($e, $ctx);
+        $e->text(' while ');
+        $this->cond->render($e, $ctx->line);
+        $e->token($this->semi);
     }
 
     public function firstToken(): SigToken

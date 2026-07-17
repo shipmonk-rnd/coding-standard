@@ -4,7 +4,7 @@ namespace ShipMonkFmt;
 
 /**
  * Template: `keyword` / `keyword expr` (single space) — clone, yield, yield from,
- * include/require as expressions, print.
+ * include/require as expressions, print, throw-as-expression.
  */
 final class KeywordExpr implements Node
 {
@@ -16,9 +16,14 @@ final class KeywordExpr implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->keyword->text . ($this->expr !== null ? ' ' . $this->expr->render($depth) : '');
+        $e->token($this->keyword);
+
+        if ($this->expr !== null) {
+            $e->space();
+            $this->expr->render($e, $ctx);
+        }
     }
 
     public function firstToken(): SigToken

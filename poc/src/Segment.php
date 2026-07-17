@@ -28,24 +28,36 @@ final class Segment
         public readonly array $items = [],
         public readonly ?SigToken $close = null,
         public readonly ?Node $index = null,
-        public ?SigToken $trailingComment = null,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return match ($this->kind) {
-            self::PROP => $this->op->text . $this->name->text,
-            self::CALL => $this->op->text . $this->name->text
-                . CollectionLayout::render($this->open, $this->items, $this->close, $depth),
-            self::STATIC_REF => '::' . $this->name->text,
-            self::STATIC_CALL => '::' . $this->name->text
-                . CollectionLayout::render($this->open, $this->items, $this->close, $depth),
-            self::INDEX => '[' . ($this->index?->render($depth) ?? '') . ']',
-            self::INVOKE => CollectionLayout::render($this->open, $this->items, $this->close, $depth),
-            self::INC_DEC => $this->op->text,
-        };
+        switch ($this->kind) {
+            case self::PROP:
+            case self::STATIC_REF:
+                $e->token($this->op);
+                $e->token($this->name);
+                break;
+            case self::CALL:
+            case self::STATIC_CALL:
+                $e->token($this->op);
+                $e->token($this->name);
+                CollectionLayout::render($e, $this->open, $this->items, $this->close, $ctx);
+                break;
+            case self::INDEX:
+                $e->token($this->open);
+                $this->index?->render($e, $ctx);
+                $e->token($this->close);
+                break;
+            case self::INVOKE:
+                CollectionLayout::render($e, $this->open, $this->items, $this->close, $ctx);
+                break;
+            case self::INC_DEC:
+                $e->token($this->op);
+                break;
+        }
     }
 
     public function isObjectOp(): bool

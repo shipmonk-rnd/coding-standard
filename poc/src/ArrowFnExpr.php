@@ -18,18 +18,32 @@ final class ArrowFnExpr implements Node
         private readonly array $params,
         private readonly SigToken $paramsClose,
         private readonly ?TypeNode $returnType,
+        private readonly SigToken $arrow,
         private readonly Node $body,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return ($this->static !== null ? $this->static->text . ' ' : '')
-            . $this->keyword->text . ' '
-            . CollectionLayout::render($this->paramsOpen, $this->params, $this->paramsClose, $depth, onePerRow: true)
-            . ($this->returnType !== null ? ': ' . $this->returnType->render($depth) : '')
-            . ' => ' . $this->body->render($depth);
+        if ($this->static !== null) {
+            $e->token($this->static);
+            $e->space();
+        }
+
+        $e->token($this->keyword);
+        $e->space();
+        CollectionLayout::render($e, $this->paramsOpen, $this->params, $this->paramsClose, $ctx, onePerRow: true);
+
+        if ($this->returnType !== null) {
+            $e->text(': ');
+            $this->returnType->render($e, $ctx);
+        }
+
+        $e->space();
+        $e->token($this->arrow);
+        $e->space();
+        $this->body->render($e, $ctx);
     }
 
     public function firstToken(): SigToken

@@ -16,19 +16,24 @@ final class ConstMember implements Node
         private readonly SigToken $keyword,
         private readonly SigToken $name,
         private readonly Node $value,
+        private readonly SigToken $semi,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $out = '';
-
         foreach ($this->modifiers as $modifier) {
-            $out .= $modifier->text . ' ';
+            $e->token($modifier);
+            $e->space();
         }
 
-        return $out . $this->keyword->text . ' ' . $this->name->text . ' = ' . $this->value->render($depth) . ';';
+        $e->token($this->keyword);
+        $e->space();
+        $e->token($this->name);
+        $e->text(' = ');
+        $this->value->render($e, $ctx);
+        $e->token($this->semi);
     }
 
     public function firstToken(): SigToken

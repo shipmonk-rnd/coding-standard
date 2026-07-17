@@ -14,9 +14,9 @@ final class Atom implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->token->text;
+        $e->token($this->token);
     }
 
     public function firstToken(): SigToken

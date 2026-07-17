@@ -16,9 +16,11 @@ final class CastExpr implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->cast->text . ' ' . $this->operand->render($depth);
+        $e->token($this->cast);
+        $e->space();
+        $this->operand->render($e, $ctx);
     }
 
     public function firstToken(): SigToken

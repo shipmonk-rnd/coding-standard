@@ -7,20 +7,26 @@ namespace ShipMonkFmt;
  *
  * Whitespace is not a token here; it is the GAP (raw whitespace string) attached to
  * the *following* significant token. Templates constrain gaps ("joints"); tokens
- * themselves are always emitted verbatim. Comments ARE significant tokens, so they
- * can never be silently dropped or moved — a template either has a place for them
- * or the engine goes fatal.
+ * themselves are always emitted verbatim.
+ *
+ * Same-line `//`-style comments are NOT in the significant stream: the Lexer attaches
+ * them to the preceding token as $trailingComment (trailing trivia, Roslyn/Biome
+ * style); the Emitter guarantees they end their line. Own-line comments and
+ * multi-line comments stay significant tokens.
  */
 final class SigToken
 {
 
     public const EOF = 0;
 
+    public ?SigToken $trailingComment = null;
+
     public function __construct(
         public readonly int $id,
         public readonly string $text,
         public readonly int $line,
         public readonly string $gapBefore,
+        public readonly int $pos,
     )
     {
     }

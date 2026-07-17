@@ -5,6 +5,7 @@ namespace ShipMonkFmt;
 use ParseError;
 use PhpToken;
 use function rtrim;
+use function str_contains;
 use function strlen;
 use function substr;
 
@@ -29,6 +30,7 @@ final class Lexer
         $sig = [];
         $gap = '';
         $lastLine = 1;
+        $length = strlen($source);
 
         foreach ($tokens as $token) {
             if ($token->id === T_WHITESPACE) {
@@ -44,16 +46,30 @@ final class Lexer
                 // versions) single-line comments swallow the newline — move that
                 // whitespace where it belongs: into the following gap
                 $trimmed = rtrim($text);
-                $sig[] = new SigToken($token->id, $trimmed, $token->line, $gap);
+                $sigToken = new SigToken($token->id, $trimmed, $token->line, $gap, $token->pos);
                 $gap = substr($text, strlen($trimmed));
+            } else {
+                $sigToken = new SigToken($token->id, $text, $token->line, $gap, $token->pos);
+                $gap = '';
+            }
+
+            // trailing-trivia attachment (notes/50 §2): a single-line comment on the
+            // same line as the previous token becomes that token's trailing trivia and
+            // leaves the significant stream — ONE place instead of per-construct guards
+            if ($sigToken->isComment()
+                && !str_contains($sigToken->text, "\n")
+                && !str_contains($sigToken->gapBefore, "\n")
+                && $sig !== []
+                && $sig[count($sig) - 1]->trailingComment === null
+            ) {
+                $sig[count($sig) - 1]->trailingComment = $sigToken;
                 continue;
             }
 
-            $sig[] = new SigToken($token->id, $text, $token->line, $gap);
-            $gap = '';
+            $sig[] = $sigToken;
         }
 
-        $sig[] = new SigToken(SigToken::EOF, '', $lastLine, $gap);
+        $sig[] = new SigToken(SigToken::EOF, '', $lastLine, $gap, $length);
 
         return $sig;
     }

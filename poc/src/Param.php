@@ -3,54 +3,60 @@
 namespace ShipMonkFmt;
 
 /**
- * Template: `[modifiers] [type] [&][...]$var [= default]` — single spaces between
- * parts, `&`/`...` attached to the variable.
+ * Template: `[#[Attr] ][modifiers ][type ][&][...]$var[ = default]` — single spaces
+ * between parts, `&`/`...` attached to the variable.
  */
 final class Param implements ListItem
 {
 
     /**
-     * @param list<SigToken> $modifiers promoted-property modifiers
      * @param list<AttrGroup> $attrGroups inline attributes (`#[Attr] int $x`)
+     * @param list<SigToken> $modifiers promoted-property modifiers
      */
     public function __construct(
+        private readonly array $attrGroups,
         private readonly array $modifiers,
         private readonly ?TypeNode $type,
         private readonly ?SigToken $byRef,
         private readonly ?SigToken $variadic,
         private readonly SigToken $var,
         private readonly ?Node $default,
-        private readonly ?SigToken $trailingComment = null,
-        private readonly array $attrGroups = [],
+        private readonly ?SigToken $comma,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $out = '';
-
         foreach ($this->attrGroups as $group) {
-            $out .= $group->render($depth) . ' ';
+            $group->render($e, $ctx);
+            $e->space();
         }
 
         foreach ($this->modifiers as $modifier) {
-            $out .= $modifier->text . ' ';
+            $e->token($modifier);
+            $e->space();
         }
 
         if ($this->type !== null) {
-            $out .= $this->type->render($depth) . ' ';
+            $this->type->render($e, $ctx);
+            $e->space();
         }
 
-        $out .= ($this->byRef !== null ? '&' : '')
-            . ($this->variadic !== null ? '...' : '')
-            . $this->var->text;
+        if ($this->byRef !== null) {
+            $e->token($this->byRef);
+        }
+
+        if ($this->variadic !== null) {
+            $e->token($this->variadic);
+        }
+
+        $e->token($this->var);
 
         if ($this->default !== null) {
-            $out .= ' = ' . $this->default->render($depth);
+            $e->text(' = ');
+            $this->default->render($e, $ctx);
         }
-
-        return $out;
     }
 
     public function firstToken(): SigToken
@@ -66,9 +72,9 @@ final class Param implements ListItem
             ?? $this->var;
     }
 
-    public function trailingComment(): ?SigToken
+    public function commaToken(): ?SigToken
     {
-        return $this->trailingComment;
+        return $this->comma;
     }
 
 }

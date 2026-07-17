@@ -18,15 +18,11 @@ final class TypeNode implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $out = '';
-
         foreach ($this->tokens as $token) {
-            $out .= $token->text;
+            $e->token($token);
         }
-
-        return $out;
     }
 
     public function firstToken(): SigToken

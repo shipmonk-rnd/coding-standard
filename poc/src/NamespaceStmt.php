@@ -11,13 +11,17 @@ final class NamespaceStmt implements Node
     public function __construct(
         private readonly SigToken $keyword,
         private readonly SigToken $name,
+        private readonly SigToken $semi,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->keyword->text . ' ' . $this->name->text . ';';
+        $e->token($this->keyword);
+        $e->space();
+        $e->token($this->name);
+        $e->token($this->semi);
     }
 
     public function firstToken(): SigToken

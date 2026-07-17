@@ -2,13 +2,14 @@
 
 namespace ShipMonkFmt;
 
+use function array_slice;
+
 /**
- * Template: `<?php` header, then each statement on its own line at depth 0, separated
- * by a newline with an optional single blank line (author's blank grouping preserved,
- * runs of 2+ blank lines clamped to 1), single trailing newline at EOF.
+ * Template: `<?php` header, then each statement on its own line at depth 0
+ * (StmtSeries), single trailing newline at EOF.
  *
- * Allowed exception: `declare(...)` may sit on the same line as `<?php` (the shipmonk
- * declare-on-first-line style) — both forms are in the allowed set.
+ * Allowed exception: `declare(...)` may sit on the same line as `<?php` (the
+ * shipmonk declare-on-first-line style) — both forms are in the allowed set.
  */
 final class FileNode implements Node
 {
@@ -19,31 +20,25 @@ final class FileNode implements Node
     public function __construct(
         private readonly SigToken $openTag,
         private readonly array $stmts,
+        private readonly SigToken $eof,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $out = $this->openTag->text;
+        $e->token($this->openTag);
+        $stmts = $this->stmts;
 
-        if ($this->stmts === []) {
-            return $out . "\n";
+        if ($stmts !== [] && $stmts[0] instanceof DeclareStmt && $stmts[0]->firstToken()->newlinesBefore() === 0) {
+            $e->space();
+            $stmts[0]->render($e, RenderCtx::atLine(0));
+            $e->flushTrailing();
+            $stmts = array_slice($stmts, 1);
         }
 
-        foreach ($this->stmts as $i => $stmt) {
-            $newlines = $stmt->firstToken()->newlinesBefore();
-
-            if ($i === 0 && $stmt instanceof DeclareStmt && $newlines === 0) {
-                $out .= ' ';
-            } else {
-                $out .= "\n" . ($newlines >= 2 ? "\n" : '');
-            }
-
-            $out .= $stmt->render(0);
-        }
-
-        return $out . "\n";
+        StmtSeries::render($e, $stmts, 0, $this->eof);
+        $e->newline(0);
     }
 
     public function firstToken(): SigToken

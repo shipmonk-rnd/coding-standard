@@ -17,29 +17,31 @@ final class PropertyMember implements Node
         private readonly ?TypeNode $type,
         private readonly SigToken $var,
         private readonly ?Node $default,
+        private readonly SigToken $semi,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $out = '';
-
         foreach ($this->modifiers as $modifier) {
-            $out .= $modifier->text . ' ';
+            $e->token($modifier);
+            $e->space();
         }
 
         if ($this->type !== null) {
-            $out .= $this->type->render($depth) . ' ';
+            $this->type->render($e, $ctx);
+            $e->space();
         }
 
-        $out .= $this->var->text;
+        $e->token($this->var);
 
         if ($this->default !== null) {
-            $out .= ' = ' . $this->default->render($depth);
+            $e->text(' = ');
+            $this->default->render($e, $ctx);
         }
 
-        return $out . ';';
+        $e->token($this->semi);
     }
 
     public function firstToken(): SigToken

@@ -7,7 +7,8 @@ namespace ShipMonkFmt;
  *
  * Allowed forms (matching the existing MultilineTernary standard):
  *   FLAT      `$cond ? $a : $b`
- *   BROKEN    condition stays on its line, both branch operators LEADING at +1:
+ *   BROKEN    condition stays on its line, both branch operators LEADING at
+ *             $ctx->cont:
  *                 $cond
  *                     ? $a
  *                     : $b
@@ -26,26 +27,30 @@ final class Ternary implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->renderAt($depth + 1, $depth);
-    }
+        $this->cond->render($e, $ctx);
+        $broken = $this->hasJointBreaks();
+        $branchCtx = $broken ? RenderCtx::atLine($ctx->cont) : $ctx;
 
-    public function renderAt(int $lineIndent, int $firstDepth): string
-    {
-        $cond = $this->cond->render($firstDepth);
+        if ($this->then === null) {
+            $broken ? $e->newline($ctx->cont) : $e->space();
+            $e->token($this->question);
+            $e->token($this->colon);
+            $e->space();
+            $this->else->render($e, $branchCtx);
 
-        if (!$this->hasJointBreaks()) {
-            return $this->then === null
-                ? $cond . ' ?: ' . $this->else->render($firstDepth)
-                : $cond . ' ? ' . $this->then->render($firstDepth) . ' : ' . $this->else->render($firstDepth);
+            return;
         }
 
-        $ind = "\n" . Layout::indent($lineIndent);
-
-        return $this->then === null
-            ? $cond . $ind . '?: ' . $this->else->render($lineIndent)
-            : $cond . $ind . '? ' . $this->then->render($lineIndent) . $ind . ': ' . $this->else->render($lineIndent);
+        $broken ? $e->newline($ctx->cont) : $e->space();
+        $e->token($this->question);
+        $e->space();
+        $this->then->render($e, $branchCtx);
+        $broken ? $e->newline($ctx->cont) : $e->space();
+        $e->token($this->colon);
+        $e->space();
+        $this->else->render($e, $branchCtx);
     }
 
     public function hasJointBreaks(): bool

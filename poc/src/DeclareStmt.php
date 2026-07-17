@@ -13,13 +13,20 @@ final class DeclareStmt implements Node
         private readonly SigToken $keyword,
         private readonly SigToken $directive,
         private readonly Node $value,
+        private readonly SigToken $semi,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->keyword->text . '(' . $this->directive->text . ' = ' . $this->value->render($depth) . ');';
+        $e->token($this->keyword);
+        $e->text('(');
+        $e->token($this->directive);
+        $e->text(' = ');
+        $this->value->render($e, $ctx);
+        $e->text(')');
+        $e->token($this->semi);
     }
 
     public function firstToken(): SigToken

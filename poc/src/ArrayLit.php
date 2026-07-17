@@ -9,7 +9,7 @@ final class ArrayLit implements Node
 {
 
     /**
-     * @param list<ArrayItem|CommentRow> $items
+     * @param list<ListItem|CommentRow> $items
      */
     public function __construct(
         private readonly SigToken $open,
@@ -19,9 +19,9 @@ final class ArrayLit implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return CollectionLayout::render($this->open, $this->items, $this->close, $depth);
+        CollectionLayout::render($e, $this->open, $this->items, $this->close, $ctx);
     }
 
     public function firstToken(): SigToken

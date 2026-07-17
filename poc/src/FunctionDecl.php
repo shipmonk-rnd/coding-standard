@@ -12,8 +12,8 @@ use function count;
  * abstract/interface methods.
  *
  * Structural trigger (count-based, NOT width-based — notes/02): 2+ parameters force
- * the parameter list broken, one parameter per line (RequireMultiLineMethodSignature
- * minParametersCount=2 + one-per-line declaration convention).
+ * the parameter list broken, one parameter per line. Signature-line trailing
+ * comments ride as trivia and are flushed by the brace's newline.
  */
 final class FunctionDecl implements Node
 {
@@ -31,43 +31,44 @@ final class FunctionDecl implements Node
         private readonly SigToken $paramsClose,
         private readonly ?TypeNode $returnType,
         private readonly ?Block $body,
-        private readonly ?SigToken $headerComment = null,
+        private readonly ?SigToken $semi,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $out = '';
-
         foreach ($this->modifiers as $modifier) {
-            $out .= $modifier->text . ' ';
+            $e->token($modifier);
+            $e->space();
         }
 
-        $out .= $this->keyword->text . ' ' . $this->name->text;
-        $out .= CollectionLayout::render(
+        $e->token($this->keyword);
+        $e->space();
+        $e->token($this->name);
+        CollectionLayout::render(
+            $e,
             $this->paramsOpen,
             $this->params,
             $this->paramsClose,
-            $depth,
+            $ctx,
             forceBroken: count($this->params) >= 2,
             onePerRow: true,
         );
 
         if ($this->returnType !== null) {
-            $out .= ': ' . $this->returnType->render($depth);
+            $e->text(': ');
+            $this->returnType->render($e, $ctx);
         }
 
         if ($this->body === null) {
-            return $out . ';';
+            $e->token($this->semi);
+
+            return;
         }
 
-        // signature-line trailing comment (line-targeted directives must stay put)
-        if ($this->headerComment !== null) {
-            $out .= ' ' . $this->headerComment->text;
-        }
-
-        return $out . "\n" . Layout::indent($depth) . $this->body->render($depth);
+        $e->newline($ctx->line);
+        $this->body->render($e, $ctx);
     }
 
     public function firstToken(): SigToken

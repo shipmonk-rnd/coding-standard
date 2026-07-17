@@ -7,11 +7,10 @@ namespace ShipMonkFmt;
  *
  * Allowed forms per operator joint (author's choice, read off the source):
  *   FLAT      ` op ` — exactly one space on each side
- *   BROKEN    newline, LEADING operator on the continuation line:
+ *   BROKEN    newline, LEADING operator on the continuation line at $ctx->cont:
  *                 $a
  *                 && $b
- * A trailing-operator break (`$a &&<newline>$b`) is repaired to the leading form
- * (matches the existing standard's DisallowTrailingMultiLineTernaryOperator spirit).
+ * A trailing-operator break (`$a &&<newline>$b`) is repaired to the leading form.
  */
 final class BinChain implements Node
 {
@@ -27,32 +26,25 @@ final class BinChain implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->renderAt($depth + 1, $depth);
-    }
-
-    /**
-     * @param int $lineIndent indent of broken continuation lines
-     * @param int $firstDepth depth for the first operand (its line's depth)
-     */
-    public function renderAt(int $lineIndent, int $firstDepth): string
-    {
-        $out = $this->operands[0]->render($firstDepth);
-        $current = $firstDepth;
+        $this->operands[0]->render($e, $ctx);
+        $current = $ctx;
 
         foreach ($this->ops as $i => $op) {
             $operand = $this->operands[$i + 1];
 
             if ($op->newlinesBefore() > 0 || $operand->firstToken()->newlinesBefore() > 0) {
-                $current = $lineIndent;
-                $out .= "\n" . Layout::indent($lineIndent) . $op->text . ' ' . $operand->render($current);
+                $e->newline($ctx->cont);
+                $current = RenderCtx::atLine($ctx->cont);
             } else {
-                $out .= ' ' . $op->text . ' ' . $operand->render($current);
+                $e->space();
             }
-        }
 
-        return $out;
+            $e->token($op);
+            $e->space();
+            $operand->render($e, $current);
+        }
     }
 
     public function hasJointBreaks(): bool

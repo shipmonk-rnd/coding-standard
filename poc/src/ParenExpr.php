@@ -4,8 +4,8 @@ namespace ShipMonkFmt;
 
 /**
  * Template: `(` expr `)` with no whitespace inside the parentheses.
- * PoC limitation: no break points inside grouping parentheses (breaks are repaired
- * onto one line).
+ * PoC limitation (deliberate, documented): no break points inside grouping
+ * parentheses — breaks are repaired onto one line.
  */
 final class ParenExpr implements Node
 {
@@ -13,13 +13,16 @@ final class ParenExpr implements Node
     public function __construct(
         private readonly SigToken $open,
         private readonly Node $expr,
+        private readonly SigToken $close,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return '(' . $this->expr->render($depth) . ')';
+        $e->token($this->open);
+        $this->expr->render($e, $ctx);
+        $e->token($this->close);
     }
 
     public function firstToken(): SigToken

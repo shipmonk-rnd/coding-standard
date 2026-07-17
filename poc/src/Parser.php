@@ -2,15 +2,21 @@
 
 namespace ShipMonkFmt;
 
+use function count;
 use function in_array;
+use function preg_match;
 use function strlen;
 
 /**
  * Layout parser: recursive descent over significant tokens producing the layout tree.
  *
- * This is the default-deny totality gate (notes/40 §2): every token of the file must be
- * consumed by some construct; anything unrecognized is a FatalError — never a silent
- * pass-through.
+ * This is the default-deny totality gate (notes/40 §2): every token of the file must
+ * be consumed by some construct. Unrecognized constructs degrade to STATEMENT-level
+ * verbatim passthrough + Violation (error recovery, notes/50 §4) — never a silent
+ * pass-through, and only file-level problems (invalid PHP, inline HTML) are fatal.
+ *
+ * The parser only RECOGNIZES; enforcement lives in the templates/Emitter. Same-line
+ * comments never appear here — the Lexer turned them into trailing trivia.
  */
 final class Parser
 {
@@ -113,6 +119,11 @@ final class Parser
         T_THROW,
     ];
 
+    private const NAME_IDS = [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED];
+
+    /** @var list<Violation> */
+    public array $violations = [];
+
     private int $pos = 0;
 
     /**
@@ -134,24 +145,100 @@ final class Parser
                 throw new FatalError('close tag / inline HTML is not supported', $this->peek()->line);
             }
 
-            $stmts[] = $this->parseStmtWithTrailingComment();
+            $stmts[] = $this->parseStmtRecovering();
         }
 
-        return new FileNode($openTag, $stmts);
+        return new FileNode($openTag, $stmts, $this->peek());
+    }
+
+    // ---------------------------------------------------------------- recovery
+
+    private function parseStmtRecovering(): Node
+    {
+        $start = $this->pos;
+
+        try {
+            return $this->parseStmt();
+        } catch (FatalError $error) {
+            return $this->recoverVerbatim($start, $error);
+        }
+    }
+
+    private function parseMemberRecovering(bool $inEnum): Node
+    {
+        $start = $this->pos;
+
+        try {
+            return $this->parseMember($inEnum);
+        } catch (FatalError $error) {
+            return $this->recoverVerbatim($start, $error);
+        }
+    }
+
+    /**
+     * Statement-level error recovery (notes/50 §4): rewind to the statement start,
+     * scan with bracket counting to its terminator (`;` at depth 0 or a balanced
+     * `}` body), freeze the span verbatim, report a Violation.
+     */
+    private function recoverVerbatim(int $start, FatalError $error): VerbatimStmt
+    {
+        $this->pos = $start;
+        $tokens = [];
+        $depth = 0;
+        $sawBrace = false;
+
+        while (true) {
+            $token = $this->peek();
+
+            if ($token->is(SigToken::EOF)) {
+                break;
+            }
+
+            if ($depth === 0 && $tokens !== [] && $token->is('}')) {
+                break; // the enclosing block's close — leave it for the caller
+            }
+
+            $this->next();
+            $tokens[] = $token;
+
+            if ($token->is('(') || $token->is('[')) {
+                $depth++;
+            } elseif ($token->is('{')) {
+                $depth++;
+                $sawBrace = true;
+            } elseif ($token->is(')') || $token->is(']')) {
+                $depth--;
+            } elseif ($token->is('}')) {
+                $depth--;
+
+                if ($depth <= 0 && $sawBrace) {
+                    break;
+                }
+
+                if ($depth < 0) {
+                    // stray closer belongs to the caller — put it back
+                    $this->pos--;
+                    array_pop($tokens);
+                    break;
+                }
+            } elseif ($token->is(';') && $depth === 0) {
+                break;
+            }
+        }
+
+        if ($tokens === []) {
+            throw $error;
+        }
+
+        $this->violations[] = new Violation(
+            $tokens[0]->line,
+            'unsupported construct kept as-is: ' . $error->getMessage(),
+        );
+
+        return new VerbatimStmt($tokens);
     }
 
     // ---------------------------------------------------------------- statements
-
-    private function parseStmtWithTrailingComment(): Node
-    {
-        $stmt = $this->parseStmt();
-
-        if (!$stmt instanceof CommentStmt && $this->peek()->isComment() && $this->peek()->newlinesBefore() === 0) {
-            return new TrailingComment($stmt, $this->next());
-        }
-
-        return $stmt;
-    }
 
     private function parseStmt(): Node
     {
@@ -175,10 +262,9 @@ final class Parser
 
         if ($token->is(T_NAMESPACE)) {
             $kw = $this->next();
-            $name = $this->expectAny([T_STRING, T_NAME_QUALIFIED], 'namespace name');
-            $this->expect(';', '";"');
+            $name = $this->expectAny(self::NAME_IDS, 'namespace name');
 
-            return new NamespaceStmt($kw, $name);
+            return new NamespaceStmt($kw, $name, $this->expect(';', '";"'));
         }
 
         if ($token->is(T_USE)) {
@@ -188,9 +274,8 @@ final class Parser
         if (in_array($token->id, self::KEYWORD_STMT_IDS, true)) {
             $kw = $this->next();
             $expr = $this->peek()->is(';') ? null : $this->parseExpr();
-            $this->expect(';', '";"');
 
-            return new SimpleStmt($kw, $expr);
+            return new SimpleStmt($kw, $expr, $this->expect(';', '";"'));
         }
 
         if ($token->is(T_IF)) {
@@ -209,9 +294,8 @@ final class Parser
             $block = $this->parseBlock();
             $this->expect(T_WHILE, '"while"');
             $cond = $this->parseCond();
-            $this->expect(';', '";"');
 
-            return new DoWhileStmt($kw, $block, $cond);
+            return new DoWhileStmt($kw, $block, $cond, $this->expect(';', '";"'));
         }
 
         if ($token->is(T_FOR)) {
@@ -239,9 +323,8 @@ final class Parser
         }
 
         $expr = $this->parseExpr();
-        $this->expect(';', '";"');
 
-        return new ExprStmt($expr);
+        return new ExprStmt($expr, $this->expect(';', '";"'));
     }
 
     private function looksLikeClassDecl(): bool
@@ -263,9 +346,8 @@ final class Parser
         $this->expect('=', '"="');
         $value = $this->parseExpr();
         $this->expect(')', '")"');
-        $this->expect(';', '";"');
 
-        return new DeclareStmt($keyword, $directive, $value);
+        return new DeclareStmt($keyword, $directive, $value, $this->expect(';', '";"'));
     }
 
     private function parseUse(): UseStmt
@@ -277,7 +359,7 @@ final class Parser
             $kind = $this->next();
         }
 
-        $name = $this->expectAny([T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], 'import name');
+        $name = $this->expectAny(self::NAME_IDS, 'import name');
         $alias = null;
 
         if ($this->peek()->is(T_AS)) {
@@ -285,26 +367,41 @@ final class Parser
             $alias = $this->expect(T_STRING, 'alias name');
         }
 
-        $this->expect(';', '";"');
+        return new UseStmt($kw, $kind, $name, $alias, $this->expect(';', '";"'));
+    }
 
-        return new UseStmt($kw, $kind, $name, $alias);
+    private function parseVarList(): VarListStmt
+    {
+        $kw = $this->next();
+        $vars = [];
+
+        do {
+            $var = $this->expect(T_VARIABLE, 'variable');
+            $default = null;
+
+            if ($this->peek()->is('=')) {
+                $this->next();
+                $default = $this->parseExpr();
+            }
+
+            $vars[] = [$var, $default];
+
+            if (!$this->peek()->is(',')) {
+                break;
+            }
+
+            $this->next();
+        } while (true);
+
+        return new VarListStmt($kw, $vars, $this->expect(';', '";"'));
     }
 
     private function parseCond(): Cond
     {
-        $this->expect('(', '"("');
+        $open = $this->expect('(', '"("');
         $expr = $this->parseExpr();
-        $trailing = null;
 
-        if ($this->peek()->isComment() && $this->peek()->newlinesBefore() === 0
-            && $this->peekAt(1)->is(')') && $this->peekAt(1)->newlinesBefore() > 0
-        ) {
-            $trailing = $this->next();
-        }
-
-        $close = $this->expect(')', '")"');
-
-        return new Cond($expr, $trailing, $close);
+        return new Cond($open, $expr, $this->expect(')', '")"'));
     }
 
     private function parseIf(): IfStmt
@@ -366,73 +463,6 @@ final class Parser
         return $exprs;
     }
 
-    private function parseVarList(): VarListStmt
-    {
-        $kw = $this->next();
-        $vars = [];
-
-        do {
-            $var = $this->expect(T_VARIABLE, 'variable');
-            $default = null;
-
-            if ($this->peek()->is('=')) {
-                $this->next();
-                $default = $this->parseExpr();
-            }
-
-            $vars[] = [$var, $default];
-
-            if (!$this->peek()->is(',')) {
-                break;
-            }
-
-            $this->next();
-        } while (true);
-
-        $this->expect(';', '";"');
-
-        return new VarListStmt($kw, $vars);
-    }
-
-    /**
-     * @return non-empty-list<AttrGroup>
-     */
-    private function parseAttrGroups(): array
-    {
-        $groups = [];
-
-        while ($this->peek()->is(T_ATTRIBUTE)) {
-            $open = $this->next();
-            $attrs = [];
-
-            while (true) {
-                $name = $this->expectAny([T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], 'attribute name');
-                $argsOpen = null;
-                $args = [];
-                $argsClose = null;
-
-                if ($this->peek()->is('(')) {
-                    $argsOpen = $this->next();
-                    [$args, $argsClose] = $this->parseList(')', allowArrow: false, allowNamed: true);
-                }
-
-                $attrs[] = [$name, $argsOpen, $args, $argsClose];
-
-                if ($this->peek()->is(',')) {
-                    $this->next();
-                    continue;
-                }
-
-                break;
-            }
-
-            $this->expect(']', '"]"');
-            $groups[] = new AttrGroup($open, $attrs);
-        }
-
-        return $groups;
-    }
-
     private function parseForeach(): ForeachStmt
     {
         $kw = $this->next();
@@ -469,7 +499,7 @@ final class Parser
     {
         $kw = $this->next();
         $subject = $this->parseCond();
-        $this->expect('{', '"{"');
+        $braceOpen = $this->expect('{', '"{"');
         $cases = [];
 
         while (!$this->peek()->is('}')) {
@@ -485,19 +515,17 @@ final class Parser
                 throw new FatalError('expected "case", "default" or "}" in switch, found "' . $caseKw->text . '"', $caseKw->line);
             }
 
-            $this->expect(':', '":"');
+            $colon = $this->expect(':', '":"');
             $stmts = [];
 
             while (!$this->peek()->is('}') && !$this->peek()->is(T_CASE) && !$this->peek()->is(T_DEFAULT)) {
-                $stmts[] = $this->parseStmtWithTrailingComment();
+                $stmts[] = $this->parseStmtRecovering();
             }
 
-            $cases[] = new SwitchCase($caseKw, $expr, $stmts);
+            $cases[] = new SwitchCase($caseKw, $expr, $colon, $stmts);
         }
 
-        $this->next();
-
-        return new SwitchStmt($kw, $subject, $cases);
+        return new SwitchStmt($kw, $subject, $braceOpen, $cases, $this->next());
     }
 
     private function parseTry(): TryStmt
@@ -510,11 +538,11 @@ final class Parser
         while ($this->peek()->is(T_CATCH)) {
             $cKw = $this->next();
             $this->expect('(', '"("');
-            $types = [$this->expectAny([T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], 'exception type')];
+            $types = [$this->expectAny(self::NAME_IDS, 'exception type')];
 
             while ($this->peek()->is('|')) {
                 $this->next();
-                $types[] = $this->expectAny([T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], 'exception type');
+                $types[] = $this->expectAny(self::NAME_IDS, 'exception type');
             }
 
             $var = $this->peek()->is(T_VARIABLE) ? $this->next() : null;
@@ -533,19 +561,13 @@ final class Parser
     private function parseBlock(): Block
     {
         $open = $this->expect('{', '"{"');
-        $headerComment = null;
-
-        if ($this->peek()->isComment() && $this->peek()->newlinesBefore() === 0) {
-            $headerComment = $this->next();
-        }
-
         $stmts = [];
 
         while (!$this->peek()->is('}')) {
-            $stmts[] = $this->parseStmtWithTrailingComment();
+            $stmts[] = $this->parseStmtRecovering();
         }
 
-        return new Block($open, $stmts, $this->next(), $headerComment);
+        return new Block($open, $stmts, $this->next());
     }
 
     // ---------------------------------------------------------------- class-likes
@@ -575,14 +597,14 @@ final class Parser
             $implements = $this->parseNameList();
         }
 
-        $this->expect('{', '"{"');
+        $bodyOpen = $this->expect('{', '"{"');
         $members = [];
 
         while (!$this->peek()->is('}')) {
-            $members[] = $this->parseMember($keyword->is(T_ENUM));
+            $members[] = $this->parseMemberRecovering($keyword->is(T_ENUM));
         }
 
-        return new ClassDecl($modifiers, $keyword, $name, $enumBacking, $extends, $implements, $members, $this->next());
+        return new ClassDecl($modifiers, $keyword, $name, $enumBacking, $extends, $implements, $bodyOpen, $members, $this->next());
     }
 
     /**
@@ -590,11 +612,11 @@ final class Parser
      */
     private function parseNameList(): array
     {
-        $names = [$this->expectAny([T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], 'name')];
+        $names = [$this->expectAny(self::NAME_IDS, 'name')];
 
         while ($this->peek()->is(',')) {
             $this->next();
-            $names[] = $this->expectAny([T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], 'name');
+            $names[] = $this->expectAny(self::NAME_IDS, 'name');
         }
 
         return $names;
@@ -613,8 +635,10 @@ final class Parser
         }
 
         if ($token->is(T_USE)) {
-            $member = $this->parseUse();
-        } elseif ($inEnum && $token->is(T_CASE)) {
+            return $this->parseUse();
+        }
+
+        if ($inEnum && $token->is(T_CASE)) {
             $kw = $this->next();
             $name = $this->expect(T_STRING, 'enum case name');
             $value = null;
@@ -624,40 +648,34 @@ final class Parser
                 $value = $this->parseExpr();
             }
 
-            $this->expect(';', '";"');
-            $member = new EnumCase($kw, $name, $value);
-        } else {
-            $modifiers = $this->takeModifiers();
-
-            if ($this->peek()->is(T_CONST)) {
-                $kw = $this->next();
-                $name = $this->expect(T_STRING, 'constant name');
-                $this->expect('=', '"="');
-                $value = $this->parseExpr();
-                $this->expect(';', '";"');
-                $member = new ConstMember($modifiers, $kw, $name, $value);
-            } elseif ($this->peek()->is(T_FUNCTION)) {
-                $member = $this->parseFunctionDecl($modifiers);
-            } else {
-                $type = $this->peek()->is(T_VARIABLE) ? null : $this->parseType();
-                $var = $this->expect(T_VARIABLE, 'property name');
-                $default = null;
-
-                if ($this->peek()->is('=')) {
-                    $this->next();
-                    $default = $this->parseExpr();
-                }
-
-                $this->expect(';', '";"');
-                $member = new PropertyMember($modifiers, $type, $var, $default);
-            }
+            return new EnumCase($kw, $name, $value, $this->expect(';', '";"'));
         }
 
-        if ($this->peek()->isComment() && $this->peek()->newlinesBefore() === 0) {
-            return new TrailingComment($member, $this->next());
+        $modifiers = $this->takeModifiers();
+
+        if ($this->peek()->is(T_CONST)) {
+            $kw = $this->next();
+            $name = $this->expect(T_STRING, 'constant name');
+            $this->expect('=', '"="');
+            $value = $this->parseExpr();
+
+            return new ConstMember($modifiers, $kw, $name, $value, $this->expect(';', '";"'));
         }
 
-        return $member;
+        if ($this->peek()->is(T_FUNCTION)) {
+            return $this->parseFunctionDecl($modifiers);
+        }
+
+        $type = $this->peek()->is(T_VARIABLE) ? null : $this->parseType();
+        $var = $this->expect(T_VARIABLE, 'property name');
+        $default = null;
+
+        if ($this->peek()->is('=')) {
+            $this->next();
+            $default = $this->parseExpr();
+        }
+
+        return new PropertyMember($modifiers, $type, $var, $default, $this->expect(';', '";"'));
     }
 
     /**
@@ -666,7 +684,7 @@ final class Parser
     private function parseFunctionDecl(array $modifiers): FunctionDecl
     {
         $kw = $this->next();
-        $name = $this->expectMemberName(); // method names may be (semi-)reserved keywords, e.g. `function new()`
+        $name = $this->expectMemberName(); // method names may be (semi-)reserved keywords
         [$open, $params, $close] = $this->parseParams();
         $returnType = null;
 
@@ -675,23 +693,16 @@ final class Parser
             $returnType = $this->parseType();
         }
 
-        $headerComment = null;
-
-        if ($this->peek()->isComment() && $this->peek()->newlinesBefore() === 0
-            && $this->peekAt(1)->is('{') && $this->peekAt(1)->newlinesBefore() > 0
-        ) {
-            $headerComment = $this->next();
-        }
-
         $body = null;
+        $semi = null;
 
         if ($this->peek()->is('{')) {
             $body = $this->parseBlock();
         } else {
-            $this->expect(';', '";" or "{"');
+            $semi = $this->expect(';', '";" or "{"');
         }
 
-        return new FunctionDecl($modifiers, $kw, $name, $open, $params, $close, $returnType, $body, $headerComment);
+        return new FunctionDecl($modifiers, $kw, $name, $open, $params, $close, $returnType, $body, $semi);
     }
 
     /**
@@ -726,38 +737,21 @@ final class Parser
                 $default = $this->parseExpr();
             }
 
-            $trailing = $this->takeListItemTrailingComment(')');
-
-            $items[] = new Param($modifiers, $type, $byRef, $variadic, $var, $default, $trailing, $attrGroups);
+            $comma = $this->takeListSeparator(')');
+            $items[] = new Param($attrGroups, $modifiers, $type, $byRef, $variadic, $var, $default, $comma);
         }
 
         return [$open, $items, $this->next()];
     }
 
-    /**
-     * Consumes the separator after a list item and an optional same-line trailing
-     * comment (after the comma, or directly before the closer).
-     */
-    private function takeListItemTrailingComment(string $closeChar): ?SigToken
+    private function takeListSeparator(string $closeChar): ?SigToken
     {
         if ($this->peek()->is(',')) {
-            $this->next();
-        } elseif (!$this->peek()->is($closeChar)) {
-            if ($this->peek()->isComment() && $this->peek()->newlinesBefore() === 0 && $this->peekAt(1)->is($closeChar)) {
-                return $this->next();
-            }
-
-            if ($this->peek()->isComment()) {
-                throw new FatalError('comment is not allowed here', $this->peek()->line);
-            }
-
-            throw new FatalError('expected "," or "' . $closeChar . '", found "' . $this->peek()->text . '"', $this->peek()->line);
+            return $this->next();
         }
 
-        if ($this->peek()->isComment() && $this->peek()->newlinesBefore() === 0
-            && ($this->peekAt(1)->newlinesBefore() > 0 || $this->peekAt(1)->is($closeChar))
-        ) {
-            return $this->next();
+        if (!$this->peek()->is($closeChar)) {
+            throw new FatalError('expected "," or "' . $closeChar . '", found "' . $this->peek()->text . '"', $this->peek()->line);
         }
 
         return null;
@@ -775,12 +769,7 @@ final class Parser
         while (true) {
             $token = $this->peek();
 
-            if (in_array($token->id, self::TYPE_NAME_IDS, true)) {
-                $tokens[] = $this->next();
-                continue;
-            }
-
-            if ($token->is('|') || $this->isAmp($token)) {
+            if (in_array($token->id, self::TYPE_NAME_IDS, true) || $token->is('|') || $this->isAmp($token)) {
                 $tokens[] = $this->next();
                 continue;
             }
@@ -821,16 +810,55 @@ final class Parser
         return $modifiers;
     }
 
+    /**
+     * @return non-empty-list<AttrGroup>
+     */
+    private function parseAttrGroups(): array
+    {
+        $groups = [];
+
+        while ($this->peek()->is(T_ATTRIBUTE)) {
+            $open = $this->next();
+            $attrs = [];
+
+            while (true) {
+                $name = $this->expectAny(self::NAME_IDS, 'attribute name');
+                $argsOpen = null;
+                $args = [];
+                $argsClose = null;
+
+                if ($this->peek()->is('(')) {
+                    $argsOpen = $this->next();
+                    [$args, $argsClose] = $this->parseList(')', allowArrow: false, allowNamed: true);
+                }
+
+                $attrs[] = [$name, $argsOpen, $args, $argsClose];
+
+                if ($this->peek()->is(',')) {
+                    $this->next();
+                    continue;
+                }
+
+                break;
+            }
+
+            $this->expect(']', '"]"');
+            $groups[] = new AttrGroup($open, $attrs);
+        }
+
+        return $groups;
+    }
+
     // ---------------------------------------------------------------- expressions
 
     private function parseExpr(): Node
     {
-        $operands = [$this->wrapOperandTrailingComment($this->parseTerm())];
+        $operands = [$this->parseTerm()];
         $ops = [];
 
         while ($this->isBinaryOp($this->peek())) {
             $ops[] = $this->next();
-            $operands[] = $this->wrapOperandTrailingComment($this->parseTerm());
+            $operands[] = $this->parseTerm();
         }
 
         $node = $ops === [] ? $operands[0] : new BinChain($operands, $ops);
@@ -886,9 +914,8 @@ final class Parser
 
         if ($token->is(T_YIELD)) {
             $kw = $this->next();
-            $stops = [';', ')', ']', ','];
 
-            foreach ($stops as $stop) {
+            foreach ([';', ')', ']', ','] as $stop) {
                 if ($this->peek()->is($stop)) {
                     return new KeywordExpr($kw, null);
                 }
@@ -897,8 +924,8 @@ final class Parser
             $expr = $this->parseExpr();
 
             if ($this->peek()->is(T_DOUBLE_ARROW)) {
-                $this->next();
-                $expr = new ArrayItem($expr, $this->parseExpr());
+                $arrow = $this->next();
+                $expr = new ArrayItem($expr, $arrow, $this->parseExpr(), null);
             }
 
             return new KeywordExpr($kw, $expr);
@@ -940,9 +967,8 @@ final class Parser
         if ($token->is('(')) {
             $open = $this->next();
             $expr = $this->parseExpr();
-            $this->expect(')', '")"');
 
-            return new ParenExpr($open, $expr);
+            return new ParenExpr($open, $expr, $this->expect(')', '")"'));
         }
 
         if ($token->is(T_ISSET) || $token->is(T_EMPTY) || $token->is(T_UNSET) || $token->is(T_EXIT) || $token->is(T_LIST)) {
@@ -996,8 +1022,7 @@ final class Parser
             if ($token->is('[')) {
                 $open = $this->next();
                 $index = $this->peek()->is(']') ? null : $this->parseExpr();
-                $this->expect(']', '"]"');
-                $segments[] = new Segment(Segment::INDEX, open: $open, index: $index);
+                $segments[] = new Segment(Segment::INDEX, open: $open, index: $index, close: $this->expect(']', '"]"'));
                 continue;
             }
 
@@ -1010,15 +1035,6 @@ final class Parser
 
             if ($token->is(T_INC) || $token->is(T_DEC)) {
                 $segments[] = new Segment(Segment::INC_DEC, op: $this->next());
-                continue;
-            }
-
-            // trailing comment between chain segments (`->foo() // note` + broken `->bar()`)
-            if ($segments !== [] && $token->isComment() && $token->newlinesBefore() === 0
-                && ($this->peekAt(1)->is(T_OBJECT_OPERATOR) || $this->peekAt(1)->is(T_NULLSAFE_OBJECT_OPERATOR))
-                && $this->peekAt(1)->newlinesBefore() > 0
-            ) {
-                $segments[count($segments) - 1]->trailingComment = $this->next();
                 continue;
             }
 
@@ -1051,7 +1067,7 @@ final class Parser
     {
         $kw = $this->next();
         $subject = $this->parseCond();
-        $this->expect('{', '"{"');
+        $braceOpen = $this->expect('{', '"{"');
         $arms = [];
 
         while (!$this->peek()->is('}')) {
@@ -1074,29 +1090,18 @@ final class Parser
                 }
 
                 if ($this->peek()->is(',')) {
-                    $this->next(); // trailing comma before =>
+                    $this->next(); // trailing comma before => (layout comma)
                 }
             }
 
-            $this->expect(T_DOUBLE_ARROW, '"=>"');
+            $arrow = $this->expect(T_DOUBLE_ARROW, '"=>"');
             $body = $this->parseExpr();
+            $comma = $this->peek()->is(',') ? $this->next() : null;
 
-            if ($this->peek()->is(',')) {
-                $this->next();
-            }
-
-            $trailing = null;
-
-            if ($this->peek()->isComment() && $this->peek()->newlinesBefore() === 0) {
-                $trailing = $this->next();
-            }
-
-            $arms[] = new MatchArm($default, $conds, $body, $trailing);
+            $arms[] = new MatchArm($default, $conds, $arrow, $body, $comma);
         }
 
-        $this->next();
-
-        return new MatchExpr($kw, $subject, $arms);
+        return new MatchExpr($kw, $subject, $braceOpen, $arms, $this->next());
     }
 
     private function parseClosure(?SigToken $static): ClosureExpr
@@ -1134,9 +1139,9 @@ final class Parser
             $returnType = $this->parseType();
         }
 
-        $this->expect(T_DOUBLE_ARROW, '"=>"');
+        $arrow = $this->expect(T_DOUBLE_ARROW, '"=>"');
 
-        return new ArrowFnExpr($static, $kw, $open, $params, $close, $returnType, $this->parseExpr());
+        return new ArrowFnExpr($static, $kw, $open, $params, $close, $returnType, $arrow, $this->parseExpr());
     }
 
     private function parseVerbatimUntil(int|string $endKind): VerbatimSpan
@@ -1171,53 +1176,37 @@ final class Parser
 
             // first-class callable syntax: foo(...)
             if ($this->peek()->is(T_ELLIPSIS) && $this->peekAt(1)->is($closeChar)) {
-                $items[] = new ArrayItem(null, new Atom($this->next()));
+                $items[] = new ArrayItem(null, null, new Atom($this->next()), null);
                 continue;
             }
 
             $key = null;
+            $arrow = null;
             $named = false;
 
             if ($allowNamed && $this->peek()->is(T_STRING) && $this->peekAt(1)->is(':')) {
                 $key = new Atom($this->next());
-                $this->next();
+                $arrow = $this->next(); // the `:`
                 $named = true;
                 $value = $this->parseExpr();
             } else {
                 $value = $this->parseExpr();
 
                 if ($allowArrow && $this->peek()->is(T_DOUBLE_ARROW)) {
-                    $this->next();
+                    $arrow = $this->next();
                     $key = $value;
                     $value = $this->parseExpr();
                 }
             }
 
-            $trailing = $this->takeListItemTrailingComment($closeChar);
-
-            $items[] = new ArrayItem($key, $value, $trailing, $named);
+            $comma = $this->takeListSeparator($closeChar);
+            $items[] = new ArrayItem($key, $arrow, $value, $comma, $named);
         }
 
         return [$items, $this->next()];
     }
 
     // ---------------------------------------------------------------- helpers
-
-    /**
-     * A trailing comment on a binary-chain operand line (`$a // note` + broken
-     * `&& $b`) — attach only when the chain provably continues on the next line,
-     * so the comment always ends its line.
-     */
-    private function wrapOperandTrailingComment(Node $operand): Node
-    {
-        if ($this->peek()->isComment() && $this->peek()->newlinesBefore() === 0
-            && $this->isBinaryOp($this->peekAt(1)) && $this->peekAt(1)->newlinesBefore() > 0
-        ) {
-            return new TrailingComment($operand, $this->next());
-        }
-
-        return $operand;
-    }
 
     private function isBinaryOp(SigToken $token): bool
     {

@@ -35,8 +35,15 @@ foreach ($files as $file) {
     }
 
     if ($check) {
-        if ($result->changed) {
-            echo "$file: needs formatting\n";
+        if ($result->changed || $result->violations !== []) {
+            foreach ($result->violations as $violation) {
+                echo "$file:{$violation->line}: {$violation->message}\n";
+            }
+
+            if ($result->changed && $result->violations === []) {
+                echo "$file: needs formatting\n";
+            }
+
             $exit = max($exit, 1);
         }
     } elseif ($write) {

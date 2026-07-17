@@ -3,12 +3,16 @@
 namespace ShipMonkFmt;
 
 use Throwable;
+use function array_merge;
 
 /**
  * Entry point. Outcomes (notes/04):
  *   MATCH  — output === input (the code was in the allowed set)
- *   REPAIR — output differs (snapped to the closest allowed form)
- *   FATAL  — input returned byte-identical + error message (won't fix / unsupported)
+ *   REPAIR — output differs (snapped to the closest allowed form); per-statement
+ *            Violations say where
+ *   FATAL  — input returned byte-identical + error message (won't fix / internal);
+ *            unsupported constructs inside statements degrade to per-statement
+ *            verbatim passthrough + Violation instead of file-level fatal
  */
 final class Formatter
 {
@@ -16,11 +20,19 @@ final class Formatter
     public function format(string $source): FormatResult
     {
         try {
-            $file = (new Parser(Lexer::tokenize($source)))->parseFile();
-            $output = $file->render(0);
+            $parser = new Parser(Lexer::tokenize($source));
+            $file = $parser->parseFile();
+            $emitter = new Emitter($source);
+            $file->render($emitter, RenderCtx::atLine(0));
+            $output = $emitter->result();
             Verifier::verify($source, $output);
 
-            return new FormatResult($output, $output !== $source, null);
+            return new FormatResult(
+                $output,
+                $output !== $source,
+                null,
+                array_merge($parser->violations, $emitter->violations()),
+            );
         } catch (FatalError $e) {
             return new FormatResult($source, false, $e->getMessage());
         } catch (Throwable $e) {

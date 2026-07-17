@@ -18,15 +18,15 @@ final class VerbatimSpan implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $out = '';
-
         foreach ($this->tokens as $i => $token) {
-            $out .= ($i > 0 ? $token->gapBefore : '') . $token->text;
-        }
+            if ($i > 0) {
+                $e->verbatim($token->gapBefore);
+            }
 
-        return $out;
+            $e->token($token);
+        }
     }
 
     public function firstToken(): SigToken

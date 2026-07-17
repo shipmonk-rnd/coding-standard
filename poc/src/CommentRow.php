@@ -3,8 +3,8 @@
 namespace ShipMonkFmt;
 
 /**
- * A comment forming its own row inside a broken collection. Emitted verbatim;
- * its presence forces the collection broken.
+ * A comment forming its own row inside a broken collection or match body.
+ * Emitted verbatim; its presence forces the collection broken.
  */
 final class CommentRow implements Node
 {
@@ -15,9 +15,9 @@ final class CommentRow implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->token->text;
+        $e->token($this->token);
     }
 
     public function firstToken(): SigToken

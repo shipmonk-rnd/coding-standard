@@ -12,15 +12,23 @@ final class EnumCase implements Node
         private readonly SigToken $keyword,
         private readonly SigToken $name,
         private readonly ?Node $value,
+        private readonly SigToken $semi,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->keyword->text . ' ' . $this->name->text
-            . ($this->value !== null ? ' = ' . $this->value->render($depth) : '')
-            . ';';
+        $e->token($this->keyword);
+        $e->space();
+        $e->token($this->name);
+
+        if ($this->value !== null) {
+            $e->text(' = ');
+            $this->value->render($e, $ctx);
+        }
+
+        $e->token($this->semi);
     }
 
     public function firstToken(): SigToken

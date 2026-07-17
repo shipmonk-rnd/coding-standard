@@ -2,8 +2,6 @@
 
 namespace ShipMonkFmt;
 
-use function implode;
-
 /**
  * One attribute group `#[Name(args), Other]` — rendered flat, arguments per
  * CollectionLayout (may break if the author broke them).
@@ -22,21 +20,23 @@ final class AttrGroup
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $parts = [];
+        $e->token($this->open);
 
-        foreach ($this->attrs as [$name, $argsOpen, $args, $argsClose]) {
-            $part = $name->text;
-
-            if ($argsOpen !== null) {
-                $part .= CollectionLayout::render($argsOpen, $args, $argsClose, $depth);
+        foreach ($this->attrs as $i => [$name, $argsOpen, $args, $argsClose]) {
+            if ($i > 0) {
+                $e->text(', ');
             }
 
-            $parts[] = $part;
+            $e->token($name);
+
+            if ($argsOpen !== null) {
+                CollectionLayout::render($e, $argsOpen, $args, $argsClose, $ctx);
+            }
         }
 
-        return '#[' . implode(', ', $parts) . ']';
+        $e->text(']');
     }
 
     public function firstToken(): SigToken

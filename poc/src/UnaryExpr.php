@@ -15,9 +15,10 @@ final class UnaryExpr implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->op->text . $this->operand->render($depth);
+        $e->token($this->op);
+        $this->operand->render($e, $ctx);
     }
 
     public function firstToken(): SigToken

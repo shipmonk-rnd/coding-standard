@@ -41,7 +41,27 @@ foreach (glob(__DIR__ . '/fixtures/*.php') as $file) {
     $result = $formatter->format($input);
     $errors = [];
 
-    if (file_exists($file . '.fatal')) {
+    if (file_exists($file . '.violations')) {
+        $expected = trim(file_get_contents($file . '.violations'));
+
+        if ($result->fatal !== null) {
+            $errors[] = "unexpected FATAL: {$result->fatal}";
+        } elseif ($result->violations === []) {
+            $errors[] = "expected a violation containing \"$expected\", got none";
+        } else {
+            $found = false;
+
+            foreach ($result->violations as $violation) {
+                if (str_contains($violation->message, $expected)) {
+                    $found = true;
+                }
+            }
+
+            if (!$found) {
+                $errors[] = "no violation contains \"$expected\"";
+            }
+        }
+    } elseif (file_exists($file . '.fatal')) {
         $expectedFatal = trim(file_get_contents($file . '.fatal'));
 
         if ($result->fatal === null) {

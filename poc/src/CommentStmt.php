@@ -22,29 +22,29 @@ final class CommentStmt implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
         $text = $this->token->text;
 
-        if (!str_contains($text, "\n")) {
-            return $text;
-        }
+        if (str_contains($text, "\n")) {
+            $lines = explode("\n", $text);
 
-        $lines = explode("\n", $text);
+            foreach ($lines as $i => $line) {
+                if ($i === 0) {
+                    continue;
+                }
 
-        foreach ($lines as $i => $line) {
-            if ($i === 0) {
-                continue;
+                $trimmed = ltrim($line);
+
+                if (str_starts_with($trimmed, '*')) {
+                    $lines[$i] = Layout::indent($ctx->line) . ' ' . $trimmed;
+                }
             }
 
-            $trimmed = ltrim($line);
-
-            if (str_starts_with($trimmed, '*')) {
-                $lines[$i] = Layout::indent($depth) . ' ' . $trimmed;
-            }
+            $text = implode("\n", $lines);
         }
 
-        return implode("\n", $lines);
+        $e->verbatim($text);
     }
 
     public function firstToken(): SigToken

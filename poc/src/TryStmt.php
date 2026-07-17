@@ -2,8 +2,6 @@
 
 namespace ShipMonkFmt;
 
-use function implode;
-
 /**
  * Template: `try { ... } catch (A | B $e) { ... } finally { ... }` — `} catch (` on
  * one line, catch types joined ` | ` WITH spaces (existing CatchSpacing standard).
@@ -23,19 +21,21 @@ final class TryStmt implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $out = $this->keyword->text . ' ' . $this->block->render($depth);
+        $e->token($this->keyword);
+        $e->space();
+        $this->block->render($e, $ctx);
 
         foreach ($this->catches as $catch) {
-            $out .= ' ' . $catch->render($depth);
+            $e->space();
+            $catch->render($e, $ctx);
         }
 
         if ($this->finally !== null) {
-            $out .= ' finally ' . $this->finally->render($depth);
+            $e->text(' finally ');
+            $this->finally->render($e, $ctx);
         }
-
-        return $out;
     }
 
     public function firstToken(): SigToken

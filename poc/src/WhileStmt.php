@@ -16,10 +16,13 @@ final class WhileStmt implements Node
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->keyword->text . ' ' . $this->cond->render($depth)
-            . ' ' . $this->block->render($depth);
+        $e->token($this->keyword);
+        $e->space();
+        $this->cond->render($e, $ctx->line);
+        $e->space();
+        $this->block->render($e, $ctx);
     }
 
     public function firstToken(): SigToken

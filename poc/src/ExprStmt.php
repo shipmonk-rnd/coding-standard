@@ -10,13 +10,15 @@ final class ExprStmt implements Node
 
     public function __construct(
         private readonly Node $expr,
+        private readonly SigToken $semi,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        return $this->expr->render($depth) . ';';
+        $this->expr->render($e, $ctx);
+        $e->token($this->semi);
     }
 
     public function firstToken(): SigToken

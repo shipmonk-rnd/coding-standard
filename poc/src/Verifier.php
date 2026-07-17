@@ -64,6 +64,12 @@ final class Verifier
                 : $token->text;
 
             $result[] = [$token->id, $text, $token->line];
+
+            // trailing trivia left the significant stream — re-insert for comparison
+            if ($token->trailingComment !== null) {
+                $comment = $token->trailingComment;
+                $result[] = [$comment->id, $comment->text, $comment->line];
+            }
         }
 
         return $result;

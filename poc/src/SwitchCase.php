@@ -14,18 +14,23 @@ final class SwitchCase
     public function __construct(
         private readonly SigToken $keyword,
         private readonly ?Node $expr,
+        private readonly SigToken $colon,
         private readonly array $stmts,
     )
     {
     }
 
-    public function renderCase(int $depth): string
+    public function renderCase(Emitter $e, int $depth, SigToken $boundary): void
     {
-        $label = $this->expr !== null
-            ? $this->keyword->text . ' ' . $this->expr->render($depth) . ':'
-            : $this->keyword->text . ':';
+        $e->token($this->keyword);
 
-        return $label . StmtSeries::render($this->stmts, $depth + 1);
+        if ($this->expr !== null) {
+            $e->space();
+            $this->expr->render($e, RenderCtx::atLine($depth));
+        }
+
+        $e->token($this->colon);
+        StmtSeries::render($e, $this->stmts, $depth + 1, $boundary);
     }
 
     public function firstToken(): SigToken

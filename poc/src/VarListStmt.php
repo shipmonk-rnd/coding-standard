@@ -2,8 +2,6 @@
 
 namespace ShipMonkFmt;
 
-use function implode;
-
 /**
  * Template: `static $x = 1, $y;` / `global $x;` — function-local static/global
  * variable declarations on one line.
@@ -17,19 +15,26 @@ final class VarListStmt implements Node
     public function __construct(
         private readonly SigToken $keyword,
         private readonly array $vars,
+        private readonly SigToken $semi,
     )
     {
     }
 
-    public function render(int $depth): string
+    public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $parts = [];
+        $e->token($this->keyword);
 
-        foreach ($this->vars as [$var, $default]) {
-            $parts[] = $var->text . ($default !== null ? ' = ' . $default->render($depth) : '');
+        foreach ($this->vars as $i => [$var, $default]) {
+            $i > 0 ? $e->text(', ') : $e->space();
+            $e->token($var);
+
+            if ($default !== null) {
+                $e->text(' = ');
+                $default->render($e, $ctx);
+            }
         }
 
-        return $this->keyword->text . ' ' . implode(', ', $parts) . ';';
+        $e->token($this->semi);
     }
 
     public function firstToken(): SigToken
