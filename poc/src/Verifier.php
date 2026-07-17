@@ -3,78 +3,76 @@
 namespace ShipMonkFmt;
 
 use function count;
+use function max;
+use function preg_replace;
 
 /**
  * Safety gate (CSharpier's idea, notes/15): the output must contain exactly the same
- * significant tokens as the input — the only allowed difference is whitespace and
- * a trailing comma added/removed directly before a closing `]` / `)`.
- * Any other difference means the formatter has a bug; the caller then discards the
- * output and returns the input unchanged.
+ * significant tokens as the input.
+ *
+ * Model (notes/50 §8): both token streams are run through the SAME normalization —
+ * named, symmetric rules — and must then be exactly equal. No pairwise skip logic.
+ *
+ * Normalization rules:
+ *   - layout commas are deleted: a `,` directly before a closer (`)`, `]`, `}`) or
+ *     before `=>` (match condition lists) is a pure layout artifact the formatter
+ *     may add or remove
+ *   - comments compare modulo per-line leading whitespace (the formatter re-indents
+ *     multi-line comment/docblock continuation lines, nothing else)
  */
 final class Verifier
 {
 
     public static function verify(string $input, string $output): void
     {
-        $a = Lexer::tokenize($input);
-        $b = Lexer::tokenize($output);
-        $i = 0;
-        $j = 0;
+        $a = self::normalize(Lexer::tokenize($input));
+        $b = self::normalize(Lexer::tokenize($output));
+        $count = max(count($a), count($b));
 
-        while ($i < count($a) || $j < count($b)) {
+        for ($i = 0; $i < $count; $i++) {
             $ta = $a[$i] ?? null;
-            $tb = $b[$j] ?? null;
+            $tb = $b[$i] ?? null;
 
-            if ($ta !== null && $tb !== null && $ta->id === $tb->id && self::sameText($ta, $tb)) {
-                $i++;
-                $j++;
-                continue;
+            if ($ta === null || $tb === null || $ta[0] !== $tb[0] || $ta[1] !== $tb[1]) {
+                throw new FatalError(
+                    'internal error: verification failed — token stream changed near "' . ($ta[1] ?? $tb[1] ?? 'EOF') . '"',
+                    $ta[2] ?? $tb[2] ?? 0,
+                );
             }
-
-            // trailing comma removed (input has one before a closer / `=>`, output does not)
-            if ($ta !== null && $ta->is(',') && $tb !== null && self::commaMayPrecede($tb)) {
-                $i++;
-                continue;
-            }
-
-            // trailing comma added (output has one before a closer, input does not)
-            if ($tb !== null && $tb->is(',') && $ta !== null && self::commaMayPrecede($ta)) {
-                $j++;
-                continue;
-            }
-
-            throw new FatalError(
-                'internal error: verification failed — token stream changed near "' . ($ta->text ?? 'EOF') . '"',
-                $ta->line ?? $tb->line ?? 0,
-            );
         }
     }
 
     /**
-     * Positions where a trailing comma is a pure layout artifact the formatter may
-     * add/remove: before `)`/`]` (calls, arrays, params), before `}` (match arms),
-     * before `=>` (match condition lists).
+     * @param list<SigToken> $tokens
+     * @return list<array{int, string, int}> id, normalized text, line
      */
-    private static function commaMayPrecede(SigToken $next): bool
+    private static function normalize(array $tokens): array
     {
-        return $next->is(')') || $next->is(']') || $next->is('}') || $next->is(T_DOUBLE_ARROW);
+        $result = [];
+
+        foreach ($tokens as $i => $token) {
+            if ($token->id === SigToken::EOF) {
+                continue;
+            }
+
+            if ($token->is(',') && self::isLayoutComma($tokens[$i + 1] ?? null)) {
+                continue;
+            }
+
+            $text = $token->isComment()
+                ? preg_replace('~\n[ \t]*~', "\n", $token->text)
+                : $token->text;
+
+            $result[] = [$token->id, $text, $token->line];
+        }
+
+        return $result;
     }
 
-    /**
-     * Comments are compared modulo per-line leading whitespace: the formatter is
-     * allowed to re-indent multi-line comment/docblock continuation lines, nothing else.
-     */
-    private static function sameText(SigToken $a, SigToken $b): bool
+    private static function isLayoutComma(?SigToken $next): bool
     {
-        if ($a->text === $b->text) {
-            return true;
-        }
-
-        if (!$a->isComment()) {
-            return false;
-        }
-
-        return preg_replace('~\n[ \t]*~', "\n", $a->text) === preg_replace('~\n[ \t]*~', "\n", $b->text);
+        return $next !== null
+            && ($next->is(')') || $next->is(']') || $next->is('}') || $next->is(T_DOUBLE_ARROW));
     }
 
 }

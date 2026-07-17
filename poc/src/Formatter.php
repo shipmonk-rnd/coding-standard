@@ -2,6 +2,8 @@
 
 namespace ShipMonkFmt;
 
+use Throwable;
+
 /**
  * Entry point. Outcomes (notes/04):
  *   MATCH  — output === input (the code was in the allowed set)
@@ -21,6 +23,10 @@ final class Formatter
             return new FormatResult($output, $output !== $source, null);
         } catch (FatalError $e) {
             return new FormatResult($source, false, $e->getMessage());
+        } catch (Throwable $e) {
+            // "never corrupt, never crash the run" must not depend on templates
+            // being exception-free (notes/50 §8)
+            return new FormatResult($source, false, 'internal error: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
         }
     }
 
