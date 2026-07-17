@@ -20,8 +20,8 @@ php tests/run.php | tail -1 || fail=1
 
 step "shipmonk-standard corpus (must be 100% MATCH)"
 php tests/corpus.php --expect-all-match \
-    /p/shipmonk/oss-doctrine-entity-preloader/src \
-    /p/shipmonk/oss-doctrine-entity-preloader/tests | tail -1 || fail=1
+    ../oss-doctrine-entity-preloader-wt-jt-fmt-corpus/src \
+    ../oss-doctrine-entity-preloader-wt-jt-fmt-corpus/tests | tail -1 || fail=1
 
 step "foreign corpora (safety invariants + fatal histogram)"
 for dir in ../repos/PHP-CS-Fixer/src ../repos/PHP-Parser/lib ../repos/pretty-php/src ../repos/coding-standard; do
@@ -29,7 +29,7 @@ for dir in ../repos/PHP-CS-Fixer/src ../repos/PHP-Parser/lib ../repos/pretty-php
 done
 
 step "whitespace-perturbation fuzz"
-php tests/fuzz.php /p/shipmonk/oss-doctrine-entity-preloader/src /p/shipmonk/oss-doctrine-entity-preloader/tests tests/fixtures || fail=1
+php tests/fuzz.php ../oss-doctrine-entity-preloader-wt-jt-fmt-corpus/src ../oss-doctrine-entity-preloader-wt-jt-fmt-corpus/tests tests/fixtures || fail=1
 
 step "differential parser oracle (informational)"
 [ -d ../repos/PHP-Parser ] && php tests/oracle.php --parser=../repos/PHP-Parser ../repos/PHP-CS-Fixer/src | tail -1
