@@ -4,7 +4,8 @@ namespace ShipMonkFmt;
 
 /**
  * A comment forming its own row inside a broken collection or match body.
- * Emitted verbatim; its presence forces the collection broken.
+ * Its presence forces the collection broken; docblock continuation lines are
+ * re-indented to the row's depth (content untouched).
  */
 final class CommentRow implements Node
 {
@@ -17,7 +18,7 @@ final class CommentRow implements Node
 
     public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $e->token($this->token);
+        CommentStmt::emitReindented($e, $this->token, $ctx->line);
     }
 
     public function firstToken(): SigToken

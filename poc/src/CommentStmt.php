@@ -24,7 +24,17 @@ final class CommentStmt implements Node
 
     public function render(Emitter $e, RenderCtx $ctx): void
     {
-        $text = $this->token->text;
+        self::emitReindented($e, $this->token, $ctx->line);
+    }
+
+    /**
+     * Shared comment writer (comment rows in collections / chains use it too):
+     * single-line comments verbatim, docblock ` * ` continuation lines re-indented
+     * to $indent, and the token's trailing trivia carried (a `// note` after a docblock).
+     */
+    public static function emitReindented(Emitter $e, SigToken $token, int $indent): void
+    {
+        $text = $token->text;
 
         if (str_contains($text, "\n")) {
             $lines = explode("\n", $text);
@@ -37,7 +47,7 @@ final class CommentStmt implements Node
                 $trimmed = ltrim($line);
 
                 if (str_starts_with($trimmed, '*')) {
-                    $lines[$i] = Layout::indent($ctx->line) . ' ' . $trimmed;
+                    $lines[$i] = Layout::indent($indent) . ' ' . $trimmed;
                 }
             }
 
@@ -45,7 +55,7 @@ final class CommentStmt implements Node
         }
 
         $e->verbatim($text);
-        $e->carryTrivia($this->token); // e.g. `/** @var X $a */ // note`
+        $e->carryTrivia($token);
     }
 
     public function firstToken(): SigToken

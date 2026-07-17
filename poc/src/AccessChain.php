@@ -33,7 +33,12 @@ final class AccessChain implements Node
         $current = $ctx;
 
         foreach ($this->segments as $segment) {
-            if ($segment->isObjectOp() && $segment->op->newlinesBefore() > 0) {
+            foreach ($segment->comments as $comment) {
+                $e->lineBreak($comment, $ctx->cont);
+                CommentStmt::emitReindented($e, $comment, $ctx->cont);
+            }
+
+            if ($segment->isObjectOp() && ($segment->comments !== [] || $segment->op->newlinesBefore() > 0)) {
                 $e->newline($ctx->cont);
                 $current = RenderCtx::atLine($ctx->cont);
             }

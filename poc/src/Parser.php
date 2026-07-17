@@ -281,9 +281,10 @@ final class Parser
 
         if (in_array($token->id, self::KEYWORD_STMT_IDS, true)) {
             $kw = $this->next();
+            $leading = $this->takeCommentRows();
             $expr = $this->peek()->is(';') ? null : $this->parseExpr();
 
-            return new SimpleStmt($kw, $expr, $this->expect(';', '";"'));
+            return new SimpleStmt($kw, $leading, $expr, $this->expect(';', '";"'));
         }
 
         if ($token->is(T_IF)) {
@@ -407,9 +408,28 @@ final class Parser
     private function parseCond(): Cond
     {
         $open = $this->expect('(', '"("');
+        $leading = $this->takeCommentRows();
         $expr = $this->parseExpr();
+        $trailing = $this->takeCommentRows();
 
-        return new Cond($open, $expr, $this->expect(')', '")"'));
+        return new Cond($open, $leading, $expr, $trailing, $this->expect(')', '")"'));
+    }
+
+    /**
+     * Consecutive OWN-LINE comments (same-line comments are already trivia) at a
+     * boundary inside a broken construct — e.g. right after `(` or right before `)`.
+     *
+     * @return list<SigToken>
+     */
+    private function takeCommentRows(): array
+    {
+        $rows = [];
+
+        while ($this->peek()->isComment()) {
+            $rows[] = $this->next();
+        }
+
+        return $rows;
     }
 
     private function parseIf(): IfStmt
@@ -545,17 +565,18 @@ final class Parser
 
         while ($this->peek()->is(T_CATCH)) {
             $cKw = $this->next();
-            $this->expect('(', '"("');
+            $open = $this->expect('(', '"("');
             $types = [$this->expectAny(self::NAME_IDS, 'exception type')];
+            $pipes = [];
 
             while ($this->peek()->is('|')) {
-                $this->next();
+                $pipes[] = $this->next();
                 $types[] = $this->expectAny(self::NAME_IDS, 'exception type');
             }
 
             $var = $this->peek()->is(T_VARIABLE) ? $this->next() : null;
-            $this->expect(')', '")"');
-            $catches[] = new CatchClause($cKw, $types, $var, $this->parseBlock());
+            $close = $this->expect(')', '")"');
+            $catches[] = new CatchClause($cKw, $open, $types, $pipes, $var, $close, $this->parseBlock());
         }
 
         if ($this->peek()->is(T_FINALLY)) {
@@ -605,6 +626,7 @@ final class Parser
             $implements = $this->parseNameList();
         }
 
+        $headerComments = $this->takeCommentRows();
         $bodyOpen = $this->expect('{', '"{"');
         $members = [];
 
@@ -612,7 +634,7 @@ final class Parser
             $members[] = $this->parseMemberRecovering($keyword->is(T_ENUM));
         }
 
-        return new ClassDecl($modifiers, $keyword, $name, $enumBacking, $extends, $implements, $bodyOpen, $members, $this->next());
+        return new ClassDecl($modifiers, $keyword, $name, $enumBacking, $extends, $implements, $headerComments, $bodyOpen, $members, $this->next());
     }
 
     /**
@@ -753,6 +775,36 @@ final class Parser
         return [$open, $items, $this->next()];
     }
 
+    /**
+     * Own-line comments that INTERRUPT an expression (before a binary operator, a
+     * `->` joint, ...): consumed only when the first non-comment token ahead
+     * satisfies $continues — otherwise they belong to the enclosing construct and
+     * stay in the stream.
+     *
+     * @param callable(SigToken): bool $continues
+     * @return list<SigToken>
+     */
+    private function takeCommentsBefore(callable $continues): array
+    {
+        $n = 0;
+
+        while ($this->peekAt($n)->isComment()) {
+            $n++;
+        }
+
+        if ($n === 0 || !$continues($this->peekAt($n))) {
+            return [];
+        }
+
+        $comments = [];
+
+        for ($i = 0; $i < $n; $i++) {
+            $comments[] = $this->next();
+        }
+
+        return $comments;
+    }
+
     private function takeListSeparator(string $closeChar): ?SigToken
     {
         if ($this->peek()->is(',')) {
@@ -810,6 +862,16 @@ final class Parser
 
         if ($tokens === []) {
             throw new FatalError('expected type, found "' . $this->peek()->text . '"', $this->peek()->line);
+        }
+
+        // a comment INSIDE the type (`A | // note` multi-line unions) has no position
+        // in the flat DNF form (`A|B`) — won't-fix, recover the statement. A comment
+        // on the LAST token is the caller's to place (a return type's Allman brace,
+        // a `;`) and renders fine, so it is left alone here.
+        for ($t = 0; $t < count($tokens) - 1; $t++) {
+            if ($tokens[$t]->trailingComment !== null) {
+                throw new FatalError('comment inside a type is not supported', $tokens[$t]->line);
+            }
         }
 
         return new TypeNode($tokens);
@@ -873,13 +935,24 @@ final class Parser
     {
         $operands = [$this->parseTerm()];
         $ops = [];
+        $opComments = [];
 
-        while ($this->isBinaryOp($this->peek())) {
+        while (true) {
+            $comments = $this->takeCommentsBefore(fn (SigToken $t): bool => $this->isBinaryOp($t));
+
+            if (!$this->isBinaryOp($this->peek())) {
+                break;
+            }
+
+            if ($comments !== []) {
+                $opComments[count($ops)] = $comments;
+            }
+
             $ops[] = $this->next();
             $operands[] = $this->parseTerm();
         }
 
-        $node = $ops === [] ? $operands[0] : new BinChain($operands, $ops);
+        $node = $ops === [] ? $operands[0] : new BinChain($operands, $ops, $opComments);
 
         if ($this->peek()->is('?')) {
             $question = $this->next();
@@ -1005,6 +1078,9 @@ final class Parser
         $segments = [];
 
         while (true) {
+            $comments = $this->takeCommentsBefore(
+                static fn (SigToken $t): bool => $t->is(T_OBJECT_OPERATOR) || $t->is(T_NULLSAFE_OBJECT_OPERATOR),
+            );
             $token = $this->peek();
 
             if ($token->is(T_OBJECT_OPERATOR) || $token->is(T_NULLSAFE_OBJECT_OPERATOR)) {
@@ -1014,9 +1090,9 @@ final class Parser
                 if ($this->peek()->is('(')) {
                     $open = $this->next();
                     [$items, $close] = $this->parseList(')', allowArrow: false, allowNamed: true);
-                    $segments[] = new Segment(Segment::CALL, op: $op, name: $name, open: $open, items: $items, close: $close);
+                    $segments[] = new Segment(Segment::CALL, op: $op, name: $name, open: $open, items: $items, close: $close, comments: $comments);
                 } else {
-                    $segments[] = new Segment(Segment::PROP, op: $op, name: $name);
+                    $segments[] = new Segment(Segment::PROP, op: $op, name: $name, comments: $comments);
                 }
 
                 continue;
@@ -1139,15 +1215,22 @@ final class Parser
             if ($this->peek()->is(T_DEFAULT)) {
                 $default = $this->next();
             } else {
-                $conds[] = $this->parseExpr();
+                // the condition list is a comma-separated collection terminated by
+                // `=>` — it may span rows and carry own-line comment rows between
+                // conditions (documenting each enum case a group maps to)
+                while (!$this->peek()->is(T_DOUBLE_ARROW)) {
+                    if ($this->peek()->isComment()) {
+                        $conds[] = new CommentRow($this->next());
+                        continue;
+                    }
 
-                while ($this->peek()->is(',') && !$this->peekAt(1)->is(T_DOUBLE_ARROW)) {
-                    $this->next();
-                    $conds[] = $this->parseExpr();
-                }
+                    $expr = $this->parseExpr();
+                    $comma = $this->peek()->is(',') ? $this->next() : null;
+                    $conds[] = new MatchCondItem($expr, $comma);
 
-                if ($this->peek()->is(',')) {
-                    $this->next(); // trailing comma before => (layout comma)
+                    if ($comma === null) {
+                        break;
+                    }
                 }
             }
 

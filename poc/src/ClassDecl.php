@@ -18,6 +18,7 @@ final class ClassDecl implements Node
      * @param list<SigToken> $modifiers
      * @param list<SigToken> $extends
      * @param list<SigToken> $implements
+     * @param list<SigToken> $headerComments own-line comment rows between the header and `{`
      * @param list<Node> $members
      */
     public function __construct(
@@ -27,6 +28,7 @@ final class ClassDecl implements Node
         private readonly ?TypeNode $enumBacking,
         private readonly array $extends,
         private readonly array $implements,
+        private readonly array $headerComments,
         private readonly SigToken $bodyOpen,
         private readonly array $members,
         private readonly SigToken $bodyClose,
@@ -52,6 +54,11 @@ final class ClassDecl implements Node
 
         $this->nameList($e, ' extends ', $this->extends);
         $this->nameList($e, ' implements ', $this->implements);
+
+        foreach ($this->headerComments as $comment) {
+            $e->lineBreak($comment, $ctx->line);
+            CommentStmt::emitReindented($e, $comment, $ctx->line);
+        }
 
         $e->newline($ctx->line);
         $e->token($this->bodyOpen);

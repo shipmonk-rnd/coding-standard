@@ -3,7 +3,6 @@
 namespace ShipMonkFmt;
 
 use function count;
-use function str_contains;
 
 /**
  * THE core template — shared by array literals, call arguments, parameter lists and
@@ -79,12 +78,8 @@ final class CollectionLayout
 
         foreach (self::projectRows($items, $onePerRow) as $row) {
             if ($row instanceof CommentRow) {
-                if (str_contains($row->token->text, "\n")) {
-                    throw new FatalError('multi-line comment inside a collection is not supported', $row->token->line);
-                }
-
                 $e->lineBreak($row->token, $inner);
-                $e->token($row->token);
+                $row->render($e, RenderCtx::atLine($inner));
                 continue;
             }
 
@@ -103,7 +98,7 @@ final class CollectionLayout
             // re-emit the source comma when present so its trivia survives
             $last = $row->items[count($row->items) - 1];
             $comma = $last->commaToken();
-            $comma !== null ? $e->token($comma) : $e->text(',');
+            $comma !== null ? $e->token($comma) : $e->layoutComma();
         }
 
         $e->newline($ctx->line);

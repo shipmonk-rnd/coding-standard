@@ -23,10 +23,14 @@ final class BinChain implements Node
     /**
      * @param list<Node> $operands
      * @param list<SigToken> $ops one shorter than $operands
+     * @param array<int, list<SigToken>> $opComments own-line comment rows preceding
+     *        the operator at that index — they force the joint broken and are
+     *        re-indented onto their own continuation lines
      */
     public function __construct(
         private readonly array $operands,
         private readonly array $ops,
+        private readonly array $opComments = [],
     )
     {
     }
@@ -38,8 +42,14 @@ final class BinChain implements Node
 
         foreach ($this->ops as $i => $op) {
             $operand = $this->operands[$i + 1];
+            $comments = $this->opComments[$i] ?? [];
 
-            if ($op->newlinesBefore() > 0 || $operand->firstToken()->newlinesBefore() > 0) {
+            foreach ($comments as $comment) {
+                $e->lineBreak($comment, $ctx->cont);
+                CommentStmt::emitReindented($e, $comment, $ctx->cont);
+            }
+
+            if ($comments !== [] || $op->newlinesBefore() > 0 || $operand->firstToken()->newlinesBefore() > 0) {
                 $e->newline($ctx->cont);
                 $current = RenderCtx::atLine($ctx->cont);
             } else {
@@ -54,6 +64,10 @@ final class BinChain implements Node
 
     public function hasJointBreaks(): bool
     {
+        if ($this->opComments !== []) {
+            return true;
+        }
+
         foreach ($this->ops as $i => $op) {
             if ($op->newlinesBefore() > 0 || $this->operands[$i + 1]->firstToken()->newlinesBefore() > 0) {
                 return true;

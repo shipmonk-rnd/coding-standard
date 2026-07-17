@@ -88,6 +88,16 @@ final class Emitter
         }
     }
 
+    /**
+     * Synthesized layout comma that must land BEFORE any pending trailing comment
+     * (`=> [] // note` becomes `=> [], // note`) — the only text emission allowed
+     * to bypass the trailing-trivia guard.
+     */
+    public function layoutComma(): void
+    {
+        $this->out .= ',';
+    }
+
     public function flushTrailing(): void
     {
         if ($this->pendingTrailing !== null) {

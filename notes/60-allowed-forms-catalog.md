@@ -10,6 +10,20 @@ Source of truth for "what the standard allows", per construct. Grounded in the
 561 MATCH, 5 REPAIR, 0 FATAL, 0 verifier failures. Every remaining repair is a
 deliberate tightening (below).
 
+### Monorepo `backend/src` (2026-07-17, 18 096 files — the scale test)
+
+`files=18096 match=17606 repair=489 recovered=1 fatal=0 verify-failures=0
+safety-failures=0`. **97.3% byte-identical MATCH, 0 fatals, 0 verifier failures.**
+The single recovery is a genuine won't-fix (a multi-line `A | B | C` union type
+with a `// note` on each alternative — no position in the flat DNF form `A|B`).
+The 489 repairs are the deliberate tightenings below (half-broken conditions and
+ternaries, indent drift, blank-line clamps, pre-0.3 trailing commas). This run
+drove the comment-handling work: docblock/comment rows inside collections,
+comment rows between match-arm conditions, leading/trailing comment rows in
+conditions, `return //…\n …`, comment before a class `{`, and — the biggest win —
+**multi-line `catch` type lists** (519 trailing-`|` lines were being flattened;
+now preserved, turning ~500 repairs into matches).
+
 ## Principles (recap of notes/03, sharpened by the harvest)
 
 1. Vertical arrangement (line breaks, rows, blank grouping) = author's choice.
@@ -29,6 +43,9 @@ deliberate tightening (below).
   indent. Comments: own row, or trailing after a row / on the opener's line.
 - Mandated: item indent exactly +1 (drift like +2 is repaired — dead-code-detector
   evidence: old standard never checked array indent).
+- Comment rows may be single-line OR multi-line (docblock `/** @var … */` on a
+  promoted ctor property, block `/* … */`); `*`-prefixed continuation lines are
+  re-indented to the row depth, other continuation lines kept verbatim.
 
 ### Parameter lists ✅
 - Like collections but ONE param per row, and **≥2 params force BROKEN**
@@ -41,9 +58,12 @@ deliberate tightening (below).
 ### Match ✅
 - ALWAYS broken, one arm per line, trailing comma mandatory (also added before
   `}` — was verifier bug), `default` last by PHP semantics.
-- Arm condition lists: author's ROW grouping preserved (passkeys CBOR tables,
-  coverage-guard keyword tables), `,` at row ends; trailing comma before `=>`
-  removed (layout comma).
+- Arm condition lists are a full comma-separated collection (rows, blank-line
+  grouping, own-line comment rows between conditions, trailing `//` notes on a
+  condition riding its comma) — the sole difference from a bracketed collection
+  is NO mandatory trailing comma before `=>` (that layout comma is dropped).
+  Modelled via `MatchCondItem` (a `ListItem`) so the collection machinery is
+  reused. Evidence: enum→fee-type maps documenting each case (backend/src).
 
 ### Binary/assignment chains, ternary ✅
 - Per-joint: flat ` op ` or broken with LEADING operator at anchor+1.
@@ -57,6 +77,18 @@ deliberate tightening (below).
   construct indent). Half-broken headers (`if ($a\n && $b) {`) snap to the
   canonical broken form — phpstan-rules evidence: their own sniff intends this
   but misses these spots; we catch them. Deliberate tightening.
+- Own-line comment rows right after `(` or right before `)` are preserved at +1
+  (and force the broken form) — the "explain the guard / trailing rationale"
+  pattern (backend/src). Comments before a binary operator or `->` joint likewise
+  ride onto their own continuation line.
+
+### Try / catch ✅
+- `} catch (` on one line. Type list FLAT (`A | B $e`, ` | ` WITH spaces —
+  CatchSpacing) or BROKEN: `(` on the catch line, each type on its own line at +1
+  with a TRAILING ` |`, the variable after the last type, `)` on its own line at
+  the catch indent. Trailing `|` is deliberate — 519 unanimous corpus lines
+  (unlike boolean chains, which lead). A comment riding on `(` (a line-targeted
+  `@phpstan-ignore` on the catch) also forces the broken form.
 
 ### Access chains ✅
 - Per `->`/`?->` joint: flat or broken (leading operator at +1). `::`, `[...]`,
@@ -66,12 +98,24 @@ deliberate tightening (below).
 - Header one line; Allman brace; members at +1 with 0-1 blank preserved; blank
   before closing `}` 0-1 preserved; empty body `{\n}` or `{\n\n}` (the old
   standard's canonical). Method braces Allman; closure braces same-line.
+- Own-line comment rows between the header and `{` are preserved at the class
+  indent (the `// phpcs:enable …` pragma pattern, backend/src).
 
 ### Statements ✅
 - Own line at scope indent, 0-1 blank between (2+ clamped); trailing comments
   (incl. `@phpstan-ignore` directives) stay on their line — everywhere: after
   `;`, `{`, signature, attribute `]`, docblock, chain segment, inside broken
   conditions, on collection openers.
+- `return`/`throw`/`echo`/… with a trailing comment on the keyword, or own-line
+  comment rows before the expression, push the whole expression to +1 with the
+  comment rows preserved between (`return //why\n //ctx\n $a\n || $b;`).
+
+### Types (won't-fix) ✅
+- Union/intersection types render FLAT DNF, no spaces (`A|B`, 220 corpus uses).
+  A comment INSIDE a type (`A | //note\n B` multi-line union) has no position in
+  that form — the statement recovers verbatim + a violation (the ONE recovery in
+  18 096 backend files). A trailing comment on the LAST type token is fine (the
+  caller's Allman brace / `;` provides the break): `: float //@phpstan-ignore`.
 
 ### File ✅
 - `<?php` first; `declare(strict_types = 1);` same line allowed; single
@@ -101,3 +145,17 @@ deliberate tightening (below).
 - match arm condition rows joined; param attributes joined onto one line.
 - anonymous-class recovery splitting `};`.
 - 2 verifier false-fatals (match `}` comma, comma before `=>`).
+
+## Fixed during the backend/src scale run (2026-07-17)
+- multi-line `catch` type lists were flattened → now a first-class broken form
+  (trailing `|`); ~500 repairs became matches.
+- verifier dropped a layout comma's OWN trailing comment when deleting the comma
+  (`[] //note` vs repaired `[], //note` diverged) → comment re-inserted on both.
+- match-arm condition comma trivia was synthesized, losing source `//` notes on a
+  condition → source commas re-emitted (via `MatchCondItem`).
+- comment rows now supported: inside collections (docblocks), between match
+  conditions, at condition `(`/`)` boundaries, after `return`, before a class `{`.
+- `ParenExpr` gained the broken form (was flat-only) so grouped sub-conditions
+  with breaks/comments stop being flattened.
+- `Emitter::layoutComma()` writes a synthesized comma BEFORE a pending trailing
+  comment (the one text emission that bypasses the trailing-trivia guard).

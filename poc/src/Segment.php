@@ -19,6 +19,8 @@ final class Segment
 
     /**
      * @param list<ListItem|CommentRow> $items
+     * @param list<SigToken> $comments own-line comment rows preceding this
+     *        segment's `->` joint — they force the joint broken
      */
     public function __construct(
         public readonly string $kind,
@@ -28,6 +30,7 @@ final class Segment
         public readonly array $items = [],
         public readonly ?SigToken $close = null,
         public readonly ?Node $index = null,
+        public readonly array $comments = [],
     )
     {
     }

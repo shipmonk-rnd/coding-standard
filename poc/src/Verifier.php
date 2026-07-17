@@ -56,6 +56,14 @@ final class Verifier
             }
 
             if ($token->is(',') && self::isLayoutComma($tokens[$i + 1] ?? null)) {
+                // the comma vanishes, but its trailing comment is real content:
+                // `[] // note` (comment on `]`) vs the repaired `[], // note`
+                // (comment on the synthesized comma) must still compare equal
+                if ($token->trailingComment !== null) {
+                    $comment = $token->trailingComment;
+                    $result[] = [$comment->id, $comment->text, $comment->line];
+                }
+
                 continue;
             }
 

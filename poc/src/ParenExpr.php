@@ -3,9 +3,16 @@
 namespace ShipMonkFmt;
 
 /**
- * Template: `(` expr `)` with no whitespace inside the parentheses.
- * PoC limitation (deliberate, documented): no break points inside grouping
- * parentheses — breaks are repaired onto one line.
+ * Template: grouping parentheses.
+ *
+ * Allowed forms (mirrors Cond):
+ *   FLAT      `($a && $b)` — no whitespace inside the parentheses
+ *   BROKEN    `(` newline, inner expression at the anchor's depth + 1 with leading
+ *             operators, `)` back at the anchor's depth:
+ *                 && !( // trailing comments ride as `(` trivia
+ *                     $a
+ *                     && $b
+ *                 )
  */
 final class ParenExpr implements Node
 {
@@ -20,8 +27,22 @@ final class ParenExpr implements Node
 
     public function render(Emitter $e, RenderCtx $ctx): void
     {
+        $broken = $this->expr->firstToken()->newlinesBefore() > 0
+            || $this->close->newlinesBefore() > 0
+            || (($this->expr instanceof BinChain || $this->expr instanceof Ternary) && $this->expr->hasJointBreaks());
+
         $e->token($this->open);
-        $this->expr->render($e, $ctx);
+
+        if (!$broken) {
+            $this->expr->render($e, $ctx);
+            $e->token($this->close);
+
+            return;
+        }
+
+        $e->newline($ctx->line + 1);
+        $this->expr->render($e, RenderCtx::aligned($ctx->line + 1));
+        $e->newline($ctx->line);
         $e->token($this->close);
     }
 
