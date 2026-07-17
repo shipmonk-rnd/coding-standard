@@ -31,14 +31,14 @@ final class Verifier
                 continue;
             }
 
-            // trailing comma removed (input has one before a closer, output does not)
-            if ($ta !== null && $ta->is(',') && $tb !== null && ($tb->is(']') || $tb->is(')'))) {
+            // trailing comma removed (input has one before a closer / `=>`, output does not)
+            if ($ta !== null && $ta->is(',') && $tb !== null && self::commaMayPrecede($tb)) {
                 $i++;
                 continue;
             }
 
             // trailing comma added (output has one before a closer, input does not)
-            if ($tb !== null && $tb->is(',') && $ta !== null && ($ta->is(']') || $ta->is(')'))) {
+            if ($tb !== null && $tb->is(',') && $ta !== null && self::commaMayPrecede($ta)) {
                 $j++;
                 continue;
             }
@@ -48,6 +48,16 @@ final class Verifier
                 $ta->line ?? $tb->line ?? 0,
             );
         }
+    }
+
+    /**
+     * Positions where a trailing comma is a pure layout artifact the formatter may
+     * add/remove: before `)`/`]` (calls, arrays, params), before `}` (match arms),
+     * before `=>` (match condition lists).
+     */
+    private static function commaMayPrecede(SigToken $next): bool
+    {
+        return $next->is(')') || $next->is(']') || $next->is('}') || $next->is(T_DOUBLE_ARROW);
     }
 
     /**
