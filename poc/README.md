@@ -50,10 +50,13 @@ verifier/idempotency failures.
 
 | file | role |
 |---|---|
-| `src/Lexer.php` | significant tokens + whitespace gaps (comments are tokens) |
-| `src/Parser.php` | layout parser = the default-deny totality gate |
-| `src/CollectionLayout.php` | THE core template: flat/broken, rows, blank grouping, trailing comma iff broken |
-| `src/FileNode.php` … `src/Atom.php` | per-construct templates (`render()` = projection + print) |
-| `src/Verifier.php` | re-tokenize output, diff vs input modulo whitespace + trailing commas |
-| `src/Formatter.php` | MATCH / REPAIR / FATAL entry point |
-| `tests/fixtures/` | golden files: `X.php` (+ `.fixed` expected output / `.fatal` expected error) |
+| `src/Lexer.php` | significant tokens + whitespace gaps; same-line comments become trailing trivia |
+| `src/Parser.php` | layout parser (recognize-only) + statement-level error recovery |
+| `src/Emitter.php` | token writer — ALL whitespace/indent/blank policy + the trailing-trivia invariant |
+| `src/RenderCtx.php` | the two indent coordinates (anchor line / continuation) |
+| `src/CollectionLayout.php` | THE core template: flat/broken, `projectRows()`, trailing comma iff broken |
+| `src/FileNode.php` … `src/Atom.php` | per-construct templates (`render()` = projection + emit) |
+| `src/StmtSeries.php` | statement series + per-statement REPAIR violations (line-precise `--check`) |
+| `src/Verifier.php` | symmetric token-stream normalization gate |
+| `src/Formatter.php` | MATCH / REPAIR / FATAL entry point (Throwable-safe) |
+| `tests/` | `unit.php`, `run.php` (golden), `corpus.php`, `fuzz.php`, `oracle.php`, `ci.sh` |
