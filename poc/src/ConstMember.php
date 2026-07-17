@@ -14,6 +14,7 @@ final class ConstMember implements Node
     public function __construct(
         private readonly array $modifiers,
         private readonly SigToken $keyword,
+        private readonly ?TypeNode $type,
         private readonly SigToken $name,
         private readonly Node $value,
         private readonly SigToken $semi,
@@ -30,6 +31,12 @@ final class ConstMember implements Node
 
         $e->token($this->keyword);
         $e->space();
+
+        if ($this->type !== null) {
+            $this->type->render($e, $ctx);
+            $e->space();
+        }
+
         $e->token($this->name);
         $e->text(' = ');
         $this->value->render($e, $ctx);

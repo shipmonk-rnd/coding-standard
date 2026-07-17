@@ -89,8 +89,11 @@ final class Parser
         T_ABSTRACT,
         T_FINAL,
         T_PRIVATE,
+        T_PRIVATE_SET,
         T_PROTECTED,
+        T_PROTECTED_SET,
         T_PUBLIC,
+        T_PUBLIC_SET,
         T_READONLY,
         T_STATIC,
         T_VAR,
@@ -660,11 +663,12 @@ final class Parser
 
         if ($this->peek()->is(T_CONST)) {
             $kw = $this->next();
-            $name = $this->expect(T_STRING, 'constant name');
+            $type = $this->peekAt(1)->is('=') ? null : $this->parseType(); // typed constant (PHP 8.3)
+            $name = $this->expectConstName(); // const names may be (semi-)reserved (`const PUBLIC = ...`)
             $this->expect('=', '"="');
             $value = $this->parseExpr();
 
-            return new ConstMember($modifiers, $kw, $name, $value, $this->expect(';', '";"'));
+            return new ConstMember($modifiers, $kw, $type, $name, $value, $this->expect(';', '";"'));
         }
 
         if ($this->peek()->is(T_FUNCTION)) {
@@ -766,6 +770,7 @@ final class Parser
     {
         $tokens = [];
         $parens = 0;
+        $expectName = true; // two adjacent names never form a type (`const string NAME`)
 
         if ($this->peek()->is('?')) {
             $tokens[] = $this->next();
@@ -774,22 +779,27 @@ final class Parser
         while (true) {
             $token = $this->peek();
 
-            // NB: only the NOT_FOLLOWED_BY_VAR amp is an intersection-type operator;
-            // `&` before a variable is the by-ref marker (`array &$tokens`)
-            if (in_array($token->id, self::TYPE_NAME_IDS, true) || $token->is('|')
-                || $token->id === T_AMPERSAND_NOT_FOLLOWED_BY_VAR_OR_VARARG
-            ) {
+            if ($expectName && in_array($token->id, self::TYPE_NAME_IDS, true)) {
                 $tokens[] = $this->next();
+                $expectName = false;
                 continue;
             }
 
-            if ($token->is('(')) {
+            // NB: only the NOT_FOLLOWED_BY_VAR amp is an intersection-type operator;
+            // `&` before a variable is the by-ref marker (`array &$tokens`)
+            if (!$expectName && ($token->is('|') || $token->id === T_AMPERSAND_NOT_FOLLOWED_BY_VAR_OR_VARARG)) {
+                $tokens[] = $this->next();
+                $expectName = true;
+                continue;
+            }
+
+            if ($expectName && $token->is('(')) {
                 $parens++;
                 $tokens[] = $this->next();
                 continue;
             }
 
-            if ($token->is(')') && $parens > 0) {
+            if (!$expectName && $token->is(')') && $parens > 0) {
                 $parens--;
                 $tokens[] = $this->next();
                 continue;
@@ -1052,9 +1062,13 @@ final class Parser
         return $segments === [] ? $node : new AccessChain($node, $segments);
     }
 
-    private function parseNew(): NewExpr
+    private function parseNew(): Node
     {
         $kw = $this->next();
+
+        if ($this->peek()->is(T_CLASS)) {
+            return $this->parseAnonClass($kw);
+        }
         $class = new Atom($this->expectAny(
             [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED, T_VARIABLE, T_STATIC],
             'class name',
@@ -1069,6 +1083,41 @@ final class Parser
         }
 
         return new NewExpr($kw, $class, $open, $items, $close);
+    }
+
+    private function parseAnonClass(SigToken $newKw): AnonClassExpr
+    {
+        $classKw = $this->next();
+        $argsOpen = null;
+        $args = [];
+        $argsClose = null;
+
+        if ($this->peek()->is('(')) {
+            $argsOpen = $this->next();
+            [$args, $argsClose] = $this->parseList(')', allowArrow: false, allowNamed: true);
+        }
+
+        $extends = [];
+        $implements = [];
+
+        if ($this->peek()->is(T_EXTENDS)) {
+            $this->next();
+            $extends = $this->parseNameList();
+        }
+
+        if ($this->peek()->is(T_IMPLEMENTS)) {
+            $this->next();
+            $implements = $this->parseNameList();
+        }
+
+        $bodyOpen = $this->expect('{', '"{"');
+        $members = [];
+
+        while (!$this->peek()->is('}')) {
+            $members[] = $this->parseMemberRecovering(false);
+        }
+
+        return new AnonClassExpr($newKw, $classKw, $argsOpen, $args, $argsClose, $extends, $implements, $bodyOpen, $members, $this->next());
     }
 
     private function parseMatch(): MatchExpr
@@ -1188,6 +1237,12 @@ final class Parser
                 continue;
             }
 
+            // skipped destructuring slot: [, $pretty] = ...
+            if ($allowArrow && $this->peek()->is(',')) {
+                $items[] = new EmptySlot($this->next());
+                continue;
+            }
+
             $key = null;
             $arrow = null;
             $named = false;
@@ -1268,6 +1323,17 @@ final class Parser
         }
 
         throw new FatalError('expected member name, found "' . $token->text . '"', $token->line);
+    }
+
+    private function expectConstName(): SigToken
+    {
+        $token = $this->peek();
+
+        if (preg_match('~^[A-Za-z_\x80-\xff][A-Za-z0-9_\x80-\xff]*$~', $token->text) === 1) {
+            return $this->next();
+        }
+
+        throw new FatalError('expected constant name, found "' . $token->text . '"', $token->line);
     }
 
     /**

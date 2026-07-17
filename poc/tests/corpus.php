@@ -23,8 +23,19 @@ if ($dirs === []) {
     exit(2);
 }
 
+function hasRecovery(ShipMonkFmt\FormatResult $result): bool
+{
+    foreach ($result->violations as $violation) {
+        if (str_starts_with($violation->message, 'unsupported construct')) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 $formatter = new Formatter();
-$match = $repair = $fatal = $verifyFailures = $safetyFailures = 0;
+$match = $repair = $fatal = $verifyFailures = $safetyFailures = $recovered = 0;
 $histogram = [];
 $start = microtime(true);
 
@@ -54,6 +65,19 @@ foreach ($dirs as $dir) {
 
             $reason = preg_replace('~ on line \d+$~', '', preg_replace('~"[^"]*"~', '"…"', $result->fatal));
             $histogram[$reason] = ($histogram[$reason] ?? 0) + 1;
+        } elseif (hasRecovery($result)) {
+            // byte-identical output can still hide recovered (verbatim) statements —
+            // count those files separately, never as MATCH
+            $recovered++;
+
+            foreach ($result->violations as $violation) {
+                if (!str_starts_with($violation->message, 'unsupported construct')) {
+                    continue;
+                }
+
+                $reason = preg_replace('~ on line \d+~', '', preg_replace('~"[^"]*"~', '"…"', $violation->message));
+                $histogram[$reason] = ($histogram[$reason] ?? 0) + 1;
+            }
         } elseif ($result->changed) {
             $repair++;
             $again = $formatter->format($result->output);
@@ -68,12 +92,13 @@ foreach ($dirs as $dir) {
     }
 }
 
-$total = $match + $repair + $fatal;
+$total = $match + $repair + $fatal + $recovered;
 printf(
-    "files=%d match=%d repair=%d fatal=%d verify-failures=%d safety-failures=%d in %.1fs\n",
+    "files=%d match=%d repair=%d recovered=%d fatal=%d verify-failures=%d safety-failures=%d in %.1fs\n",
     $total,
     $match,
     $repair,
+    $recovered,
     $fatal,
     $verifyFailures,
     $safetyFailures,
@@ -89,7 +114,7 @@ if ($verifyFailures > 0 || $safetyFailures > 0) {
     exit(1);
 }
 
-if ($expectAllMatch && $match !== $total) {
+if ($expectAllMatch && ($match !== $total || $recovered > 0)) {
     echo "FAIL: expected all files to MATCH\n";
     exit(1);
 }
