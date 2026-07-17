@@ -28,9 +28,17 @@ final class Param implements ListItem
 
     public function render(Emitter $e, RenderCtx $ctx): void
     {
-        foreach ($this->attrGroups as $group) {
+        // attribute groups: inline (`#[Attr] int $x`) or on their own line above the
+        // parameter — author's choice, read off the source
+        foreach ($this->attrGroups as $i => $group) {
             $group->render($e, $ctx);
-            $e->space();
+            $next = ($this->attrGroups[$i + 1] ?? null)?->firstToken() ?? $this->afterAttrsToken();
+
+            if ($next->newlinesBefore() > 0) {
+                $e->newline($ctx->line);
+            } else {
+                $e->space();
+            }
         }
 
         foreach ($this->modifiers as $modifier) {
@@ -65,6 +73,11 @@ final class Param implements ListItem
             return $this->attrGroups[0]->firstToken();
         }
 
+        return $this->afterAttrsToken();
+    }
+
+    private function afterAttrsToken(): SigToken
+    {
         return $this->modifiers[0]
             ?? $this->type?->firstToken()
             ?? $this->byRef

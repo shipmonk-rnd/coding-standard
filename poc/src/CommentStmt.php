@@ -45,6 +45,7 @@ final class CommentStmt implements Node
         }
 
         $e->verbatim($text);
+        $e->carryTrivia($this->token); // e.g. `/** @var X $a */ // note`
     }
 
     public function firstToken(): SigToken

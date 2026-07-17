@@ -212,6 +212,11 @@ final class Parser
                 $depth--;
 
                 if ($depth <= 0 && $sawBrace) {
+                    // `new class { ... };` — the statement's `;` belongs to the span
+                    if ($this->peek()->is(';')) {
+                        $tokens[] = $this->next();
+                    }
+
                     break;
                 }
 
@@ -769,7 +774,11 @@ final class Parser
         while (true) {
             $token = $this->peek();
 
-            if (in_array($token->id, self::TYPE_NAME_IDS, true) || $token->is('|') || $this->isAmp($token)) {
+            // NB: only the NOT_FOLLOWED_BY_VAR amp is an intersection-type operator;
+            // `&` before a variable is the by-ref marker (`array &$tokens`)
+            if (in_array($token->id, self::TYPE_NAME_IDS, true) || $token->is('|')
+                || $token->id === T_AMPERSAND_NOT_FOLLOWED_BY_VAR_OR_VARARG
+            ) {
                 $tokens[] = $this->next();
                 continue;
             }
@@ -842,8 +851,7 @@ final class Parser
                 break;
             }
 
-            $this->expect(']', '"]"');
-            $groups[] = new AttrGroup($open, $attrs);
+            $groups[] = new AttrGroup($open, $attrs, $this->expect(']', '"]"'));
         }
 
         return $groups;

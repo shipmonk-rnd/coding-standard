@@ -76,6 +76,18 @@ final class Emitter
         $this->newline($indent, $allowBlank && $upcoming->newlinesBefore() >= 2);
     }
 
+    /**
+     * Register a token's trailing trivia without emitting the token itself —
+     * for nodes that emit a transformed text (re-indented comments) via verbatim().
+     */
+    public function carryTrivia(SigToken $token): void
+    {
+        if ($token->trailingComment !== null) {
+            $this->guard($token->line);
+            $this->pendingTrailing = $token->trailingComment;
+        }
+    }
+
     public function flushTrailing(): void
     {
         if ($this->pendingTrailing !== null) {

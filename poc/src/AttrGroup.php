@@ -16,6 +16,7 @@ final class AttrGroup
     public function __construct(
         private readonly SigToken $open,
         private readonly array $attrs,
+        private readonly SigToken $close,
     )
     {
     }
@@ -36,7 +37,7 @@ final class AttrGroup
             }
         }
 
-        $e->text(']');
+        $e->token($this->close);
     }
 
     public function firstToken(): SigToken

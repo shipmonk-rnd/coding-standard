@@ -11,6 +11,11 @@ namespace ShipMonkFmt;
  *                 $a
  *                 && $b
  * A trailing-operator break (`$a &&<newline>$b`) is repaired to the leading form.
+ *
+ * NOTE (notes/60): corpus code also contains continuations ALIGNED with the first
+ * operand; allowing that was tried and reverted — indentation is horizontal and
+ * therefore mandated, never an observable choice point (the perturbation fuzz
+ * caught the violation). Aligned chains are repaired to $ctx->cont.
  */
 final class BinChain implements Node
 {

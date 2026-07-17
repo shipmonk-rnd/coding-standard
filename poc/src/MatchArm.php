@@ -27,9 +27,16 @@ final class MatchArm implements Node
         if ($this->default !== null) {
             $e->token($this->default);
         } else {
+            // condition ROWS are the author's grouping, preserved like collections
             foreach ($this->conds as $i => $cond) {
                 if ($i > 0) {
-                    $e->text(', ');
+                    $e->text(',');
+
+                    if ($cond->firstToken()->newlinesBefore() > 0) {
+                        $e->newline($ctx->line);
+                    } else {
+                        $e->space();
+                    }
                 }
 
                 $cond->render($e, $ctx);
