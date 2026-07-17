@@ -1,0 +1,52 @@
+<?php
+
+function classify(int $n, array $map): string
+{
+    if (
+        $n < 0
+        && !isset($map[$n])
+    ) {
+        return 'negative';
+    } elseif ($n === 0) {
+        $label = 'zero';
+    } else {
+        $label = $map[$n] ?? 'unknown';
+    }
+
+    foreach ($map as $key => $value) {
+        if ($key > $n) {
+            continue;
+        }
+    }
+
+    for ($i = 0; $i < $n; $i++) {
+        $n--;
+    }
+
+    while ($n > 0) {
+        $n -= 2;
+    }
+
+    switch ($n) {
+        case 0:
+        case 1:
+            $label = 'small';
+            break;
+
+        default:
+            $label = 'big';
+    }
+
+    try {
+        throw new LogicException('x');
+    } catch (LogicException | RuntimeException $e) {
+        $label = $e->getMessage();
+    } finally {
+        $n = 0;
+    }
+
+    return match (true) {
+        $n > 5, $n < -5 => 'far',
+        default => $label,
+    };
+}

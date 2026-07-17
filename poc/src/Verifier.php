@@ -25,7 +25,7 @@ final class Verifier
             $ta = $a[$i] ?? null;
             $tb = $b[$j] ?? null;
 
-            if ($ta !== null && $tb !== null && $ta->id === $tb->id && $ta->text === $tb->text) {
+            if ($ta !== null && $tb !== null && $ta->id === $tb->id && self::sameText($ta, $tb)) {
                 $i++;
                 $j++;
                 continue;
@@ -48,6 +48,23 @@ final class Verifier
                 $ta->line ?? $tb->line ?? 0,
             );
         }
+    }
+
+    /**
+     * Comments are compared modulo per-line leading whitespace: the formatter is
+     * allowed to re-indent multi-line comment/docblock continuation lines, nothing else.
+     */
+    private static function sameText(SigToken $a, SigToken $b): bool
+    {
+        if ($a->text === $b->text) {
+            return true;
+        }
+
+        if (!$a->isComment()) {
+            return false;
+        }
+
+        return preg_replace('~\n[ \t]*~', "\n", $a->text) === preg_replace('~\n[ \t]*~', "\n", $b->text);
     }
 
 }

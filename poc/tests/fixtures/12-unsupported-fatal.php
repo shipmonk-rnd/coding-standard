@@ -1,4 +1,3 @@
 <?php
 
-if (true) {
-}
+goto end;
