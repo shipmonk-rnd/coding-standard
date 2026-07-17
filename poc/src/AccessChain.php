@@ -38,6 +38,12 @@ final class AccessChain implements Node
             }
 
             $out .= $segment->render($current);
+
+            // trailing comment stays at the end of this segment's line; the next
+            // segment is guaranteed broken (see parser guard), providing the newline
+            if ($segment->trailingComment !== null) {
+                $out .= ' ' . $segment->trailingComment->text;
+            }
         }
 
         return $out;

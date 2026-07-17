@@ -10,8 +10,7 @@ final class WhileStmt implements Node
 
     public function __construct(
         private readonly SigToken $keyword,
-        private readonly Node $cond,
-        private readonly SigToken $condClose,
+        private readonly Cond $cond,
         private readonly Block $block,
     )
     {
@@ -19,7 +18,7 @@ final class WhileStmt implements Node
 
     public function render(int $depth): string
     {
-        return $this->keyword->text . ' ' . CondLayout::render($this->cond, $this->condClose, $depth)
+        return $this->keyword->text . ' ' . $this->cond->render($depth)
             . ' ' . $this->block->render($depth);
     }
 

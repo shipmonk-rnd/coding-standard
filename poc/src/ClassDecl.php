@@ -60,7 +60,10 @@ final class ClassDecl implements Node
         $out = $head . "\n" . Layout::indent($depth) . '{';
 
         if ($this->members === []) {
-            return $out . "\n" . Layout::indent($depth) . '}';
+            // `{\n}` and `{\n\n}` both allowed (the old standard's
+            // EmptyLinesAroundClassBraces canonical empty body is the latter)
+            return $out . ($this->bodyClose->newlinesBefore() >= 2 ? "\n" : '')
+                . "\n" . Layout::indent($depth) . '}';
         }
 
         return $out

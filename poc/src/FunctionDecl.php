@@ -31,6 +31,7 @@ final class FunctionDecl implements Node
         private readonly SigToken $paramsClose,
         private readonly ?TypeNode $returnType,
         private readonly ?Block $body,
+        private readonly ?SigToken $headerComment = null,
     )
     {
     }
@@ -59,6 +60,11 @@ final class FunctionDecl implements Node
 
         if ($this->body === null) {
             return $out . ';';
+        }
+
+        // signature-line trailing comment (line-targeted directives must stay put)
+        if ($this->headerComment !== null) {
+            $out .= ' ' . $this->headerComment->text;
         }
 
         return $out . "\n" . Layout::indent($depth) . $this->body->render($depth);

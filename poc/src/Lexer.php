@@ -2,6 +2,7 @@
 
 namespace ShipMonkFmt;
 
+use ParseError;
 use PhpToken;
 use function rtrim;
 use function strlen;
@@ -12,14 +13,24 @@ final class Lexer
 
     /**
      * @return list<SigToken> ending with a virtual EOF token that carries the trailing gap
+     *
+     * TOKEN_PARSE: (a) semi-reserved keywords used as identifiers (`Config::DEFAULT`,
+     * `function new()`) tokenize as T_STRING, (b) invalid PHP throws ParseError — the
+     * formatter never operates on syntactically broken input.
      */
     public static function tokenize(string $source): array
     {
+        try {
+            $tokens = PhpToken::tokenize($source, TOKEN_PARSE);
+        } catch (ParseError $e) {
+            throw new FatalError('input is not valid PHP: ' . $e->getMessage(), $e->getLine());
+        }
+
         $sig = [];
         $gap = '';
         $lastLine = 1;
 
-        foreach (PhpToken::tokenize($source) as $token) {
+        foreach ($tokens as $token) {
             if ($token->id === T_WHITESPACE) {
                 $gap .= $token->text;
                 continue;

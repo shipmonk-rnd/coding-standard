@@ -69,7 +69,17 @@ final class CollectionLayout
         }
 
         $indent = Layout::indent($depth + 1);
-        $out = $open->text . "\n";
+        $out = $open->text;
+
+        // comment on the opener's line stays there (line-targeted directives)
+        if ($items[0] instanceof CommentRow && $items[0]->firstToken()->newlinesBefore() === 0
+            && !str_contains($items[0]->token->text, "\n")
+        ) {
+            $out .= ' ' . $items[0]->token->text;
+            $items = array_slice($items, 1);
+        }
+
+        $out .= "\n";
         $pendingComment = null; // trailing comment of the still-open row
         $rowOpen = false;
 

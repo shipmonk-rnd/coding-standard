@@ -10,12 +10,11 @@ final class IfStmt implements Node
 {
 
     /**
-     * @param list<array{SigToken, Node, SigToken, Block}> $elseifs kw, cond, condClose, block
+     * @param list<array{SigToken, Cond, Block}> $elseifs kw, cond, block
      */
     public function __construct(
         private readonly SigToken $keyword,
-        private readonly Node $cond,
-        private readonly SigToken $condClose,
+        private readonly Cond $cond,
         private readonly Block $then,
         private readonly array $elseifs,
         private readonly ?Block $else,
@@ -25,11 +24,11 @@ final class IfStmt implements Node
 
     public function render(int $depth): string
     {
-        $out = $this->keyword->text . ' ' . CondLayout::render($this->cond, $this->condClose, $depth)
+        $out = $this->keyword->text . ' ' . $this->cond->render($depth)
             . ' ' . $this->then->render($depth);
 
-        foreach ($this->elseifs as [$kw, $cond, $close, $block]) {
-            $out .= ' ' . $kw->text . ' ' . CondLayout::render($cond, $close, $depth) . ' ' . $block->render($depth);
+        foreach ($this->elseifs as [$kw, $cond, $block]) {
+            $out .= ' ' . $kw->text . ' ' . $cond->render($depth) . ' ' . $block->render($depth);
         }
 
         if ($this->else !== null) {

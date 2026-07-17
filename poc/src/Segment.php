@@ -28,6 +28,7 @@ final class Segment
         public readonly array $items = [],
         public readonly ?SigToken $close = null,
         public readonly ?Node $index = null,
+        public ?SigToken $trailingComment = null,
     )
     {
     }

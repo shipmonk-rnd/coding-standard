@@ -20,8 +20,7 @@ final class SwitchStmt implements Node
      */
     public function __construct(
         private readonly SigToken $keyword,
-        private readonly Node $subject,
-        private readonly SigToken $condClose,
+        private readonly Cond $subject,
         private readonly array $cases,
     )
     {
@@ -29,7 +28,7 @@ final class SwitchStmt implements Node
 
     public function render(int $depth): string
     {
-        $out = $this->keyword->text . ' ' . CondLayout::render($this->subject, $this->condClose, $depth) . ' {';
+        $out = $this->keyword->text . ' ' . $this->subject->render($depth) . ' {';
 
         foreach ($this->cases as $case) {
             $blank = $case->firstToken()->newlinesBefore() >= 2 ? "\n" : '';
