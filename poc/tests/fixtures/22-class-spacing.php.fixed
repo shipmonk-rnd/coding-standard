@@ -1,0 +1,38 @@
+<?php declare(strict_types = 1);
+
+namespace App;
+
+final class Spacing
+{
+
+    public const A = 1;
+    public const B = 2;
+    private int $x;
+    private int $y;
+
+    /**
+     * @param list<int> $items
+     */
+    public function __construct(array $items)
+    {
+    }
+
+    public function a(): void
+    {
+    }
+
+    #[Route]
+    public function b(): void
+    {
+    }
+
+}
+
+interface Contract
+{
+
+    public function one(): void;
+
+    public function two(): void;
+
+}

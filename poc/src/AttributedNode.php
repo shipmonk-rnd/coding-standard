@@ -35,4 +35,10 @@ final class AttributedNode implements Node
         return $this->groups[0]->firstToken();
     }
 
+    /** The decorated declaration (used to classify a member for spacing). */
+    public function target(): Node
+    {
+        return $this->target;
+    }
+
 }

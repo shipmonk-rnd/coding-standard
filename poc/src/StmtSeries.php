@@ -21,15 +21,33 @@ final class StmtSeries
     /**
      * @param list<Node> $stmts
      * @param SigToken|null $boundary the token following the series (block close, EOF)
+     * @param (callable(list<Node>, int): ?bool)|null $blankBefore per-boundary
+     *        blank-line policy (true = mandate a blank, false = forbid, null =
+     *        author's choice), called with the full series and the index of the
+     *        upcoming statement. Omitted for blocks/switch/file series, where blank
+     *        lines stay the author's choice.
      */
-    public static function render(Emitter $e, array $stmts, int $depth, ?SigToken $boundary): void
+    public static function render(Emitter $e, array $stmts, int $depth, ?SigToken $boundary, ?callable $blankBefore = null): void
     {
         foreach ($stmts as $i => $stmt) {
+            $first = $stmt->firstToken();
+            $policy = $blankBefore !== null ? $blankBefore($stmts, $i) : null;
+            $breakStart = $e->offset();
+
             if ($stmt instanceof VerbatimStmt) {
                 // keep the frozen statement's original own-line indentation
-                $e->newline(0, $stmt->firstToken()->newlinesBefore() >= 2);
+                $e->newline(0, $policy ?? ($first->newlinesBefore() >= 2));
+            } elseif ($policy !== null) {
+                $e->newline($depth, $policy);
             } else {
-                $e->lineBreak($stmt->firstToken(), $depth);
+                $e->lineBreak($first, $depth);
+            }
+
+            // a mandated/forbidden blank the source didn't already match is a repair,
+            // pinned to this member's line (the boundary lives between two slices, so
+            // the content comparison below never sees it)
+            if ($policy !== null && $policy !== ($first->newlinesBefore() >= 2)) {
+                $e->violation(new Violation($first->line, 'blank-line spacing does not match the required layout', $breakStart));
             }
 
             $outStart = $e->offset();
@@ -42,11 +60,11 @@ final class StmtSeries
                 continue;
             }
 
-            $srcStart = $stmt->firstToken()->pos;
+            $srcStart = $first->pos;
             $srcEnd = $next->pos - strlen($next->gapBefore);
 
             if (substr($e->source, $srcStart, $srcEnd - $srcStart) !== $e->slice($outStart)) {
-                $e->violation(new Violation($stmt->firstToken()->line, 'formatting does not match any allowed form', $outStart));
+                $e->violation(new Violation($first->line, 'formatting does not match any allowed form', $outStart));
             }
         }
     }

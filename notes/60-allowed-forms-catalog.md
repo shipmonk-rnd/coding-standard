@@ -26,7 +26,9 @@ now preserved, turning ~500 repairs into matches).
 
 ## Principles (recap of notes/03, sharpened by the harvest)
 
-1. Vertical arrangement (line breaks, rows, blank grouping) = author's choice.
+1. Vertical arrangement (line breaks, rows, blank grouping) = author's choice —
+   EXCEPT where a structural rule mandates it (principle 3): match is always
+   broken, and class-member blank spacing is enforced (see "Member spacing").
 2. Horizontal whitespace (spacing, **indentation**) = mandated, never a choice
    point. **Hard lesson (BinChain, fuzz-caught):** reading a choice off
    indentation breaks `format(perturb(x)) == format(x)` — choice points must be
@@ -95,11 +97,29 @@ now preserved, turning ~500 repairs into matches).
   `(...)`, `++/--` never break.
 
 ### Classes / members ✅
-- Header one line; Allman brace; members at +1 with 0-1 blank preserved; blank
-  before closing `}` 0-1 preserved; empty body `{\n}` or `{\n\n}` (the old
-  standard's canonical). Method braces Allman; closure braces same-line.
+- Header one line; Allman brace; members at +1. Method braces Allman; closure
+  braces same-line.
+- **Blank-line spacing is MANDATED here** (the one construct where vertical space
+  is enforced, not the author's — see "Member spacing" below). Empty body keeps
+  the author's `{\n}` or `{\n\n}`.
 - Own-line comment rows between the header and `{` are preserved at the class
   indent (the `// phpcs:enable …` pragma pattern, backend/src).
+
+### Member spacing (MANDATED blanks) ✅
+The sole place blank lines are enforced rather than clamped-to-author (`MemberSpacing`,
+corpus-grounded on 18 096 backend/src files):
+- **blank after `{`** (before the first member) — 18 073 classes have it, 0 without;
+- **blank before `}`** (after the last member, non-empty body) — 18 093 vs 28;
+- **a blank surrounds every method** — mandatory at a member boundary when either
+  side is a method (function-like), INCLUDING the blank before a method's leading
+  docblock/attribute block (which the tokenizer emits as separate members — the
+  blank goes before the comment block, never between it and the method);
+- **fields stay the author's choice** — consecutive properties / constants / enum
+  cases may sit with or without a blank (813 adjacent consts, 974 adjacent cases
+  with none). Applies to class/interface/trait/enum and anonymous classes; blocks,
+  switch bodies and file-level series keep the author's blanks (0-1 clamp).
+- Cost on backend/src: +46 repairs (files missing a mandated blank), 0 on the OSS
+  gold corpora — the convention is effectively universal already.
 
 ### Statements ✅
 - Own line at scope indent, 0-1 blank between (2+ clamped); trailing comments

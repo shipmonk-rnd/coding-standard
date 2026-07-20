@@ -62,8 +62,8 @@ final class ClassDecl implements Node
 
         $e->newline($ctx->line);
         $e->token($this->bodyOpen);
-        StmtSeries::render($e, $this->members, $ctx->line + 1, $this->bodyClose);
-        $e->newline($ctx->line, $this->bodyClose->newlinesBefore() >= 2);
+        StmtSeries::render($e, $this->members, $ctx->line + 1, $this->bodyClose, MemberSpacing::blankBefore(...));
+        MemberSpacing::renderClose($e, $ctx->line, $this->members, $this->bodyClose);
         $e->token($this->bodyClose);
     }
 
