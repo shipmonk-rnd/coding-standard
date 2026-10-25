@@ -23,7 +23,7 @@ class RulesetSortingTest extends TestCase
             $rules[] = (string) $rule['ref'];
         }
 
-        self::assertNotEmpty($rules, 'No rules found in ruleset.xml');
+        self::assertNotSame([], $rules, 'No rules found in ruleset.xml');
 
         $sortedRules = $rules;
         natsort($sortedRules);
