@@ -12,12 +12,12 @@
     "require-dev": {
         "ext-simplexml": "*",
         "editorconfig-checker/editorconfig-checker": "^10.6",
-        "ergebnis/composer-normalize": "^2.45",
         "phpstan/phpstan": "^2.1",
         "phpstan/phpstan-phpunit": "^2.0",
         "phpstan/phpstan-strict-rules": "^2.0",
         "phpunit/phpunit": "^10.5.62",
         "shipmonk/composer-dependency-analyser": "^1.8",
+        "shipmonk/composer-normalizer": "^0.1.0",
         "shipmonk/dead-code-detector": "^1.0",
         "shipmonk/name-collision-detector": "^2.1",
         "shipmonk/phpstan-rules": "^4.1"
@@ -34,8 +34,7 @@
     },
     "config": {
         "allow-plugins": {
-            "dealerdirect/phpcodesniffer-composer-installer": true,
-            "ergebnis/composer-normalize": true
+            "dealerdirect/phpcodesniffer-composer-installer": true
         },
         "sort-packages": true
     },
@@ -51,7 +50,7 @@
         ],
         "check:collisions": "detect-collisions",
         "check:composer": [
-            "composer normalize --dry-run --no-check-lock --no-update-lock",
+            "composer-normalizer --dry-run",
             "composer validate --strict"
         ],
         "check:cs": "phpcs",
